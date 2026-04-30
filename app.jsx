@@ -1,0 +1,804 @@
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+
+const MODULE_MM = 50;
+const UNIT = 0.5;
+const VISUAL_TILE_UNIT = 0.49;
+const TILE_THICKNESS = 0.012;
+const MODEL_BASE_COLOR = "#808080";
+
+const CATALOG = [
+  { id: "scifi_floor_base_a_50_v01", name: "Sci-Fi Floor Tile", category: "floor", theme: "scifi", variant: "base_a", width_mm: 50, depth_mm: 50, height_mm: 6, file_stl: "scifi_floor_base_a_50_v01.stl", file_3mf: "scifi_floor_base_a_50_v01.3mf", print_orientation: "Face-down", supports: false, bed_texture_finish: true, notes: "Default floor module. Designed to use build plate texture as final finish." },
+  { id: "scifi_floor_base_b_50_v01", name: "Sci-Fi Floor Corner Slots", category: "floor", theme: "scifi", variant: "base_b", width_mm: 50, depth_mm: 50, height_mm: 6, file_stl: "scifi_floor_base_b_50_v01.stl", file_3mf: "scifi_floor_base_b_50_v01.3mf", print_orientation: "Face-down", supports: false, bed_texture_finish: true, notes: "Floor module with corner slot detail." },
+  { id: "scifi_floor_base_c_50_v01", name: "Sci-Fi Floor Modular 2x2", category: "floor", theme: "scifi", variant: "base_c", width_mm: 50, depth_mm: 50, height_mm: 6, file_stl: "scifi_floor_base_c_50_v01.stl", file_3mf: "scifi_floor_base_c_50_v01.3mf", print_orientation: "Face-down", supports: false, bed_texture_finish: true, notes: "Floor module with 2x2 panel pattern." },
+  { id: "scifi_wall_base_a_50_v01", name: "Sci-Fi Wall Panel", category: "wall", theme: "scifi", variant: "base_a", width_mm: 50, depth_mm: 8, height_mm: 50, file_stl: "scifi_wall_base_a_50_v01.stl", file_3mf: "scifi_wall_base_a_50_v01.3mf", print_orientation: "Face-down", supports: false, bed_texture_finish: true, notes: "Default wall module." },
+  { id: "scifi_wall_base_b_50_v01", name: "Sci-Fi Wall Corner Slots", category: "wall", theme: "scifi", variant: "base_b", width_mm: 50, depth_mm: 8, height_mm: 50, file_stl: "scifi_wall_base_b_50_v01.stl", file_3mf: "scifi_wall_base_b_50_v01.3mf", print_orientation: "Face-down", supports: false, bed_texture_finish: true, notes: "Wall module with corner slot detail." },
+  { id: "scifi_wall_base_c_50_v01", name: "Sci-Fi Wall Modular 2x2", category: "wall", theme: "scifi", variant: "base_c", width_mm: 50, depth_mm: 8, height_mm: 50, file_stl: "scifi_wall_base_c_50_v01.stl", file_3mf: "scifi_wall_base_c_50_v01.3mf", print_orientation: "Face-down", supports: false, bed_texture_finish: true, notes: "Wall module with 2x2 panel pattern." },
+  { id: "scifi_wall_louver_50_v01", name: "Sci-Fi Wall Louver", category: "wall", theme: "scifi", variant: "louver", width_mm: 50, depth_mm: 8, height_mm: 50, file_stl: "scifi_wall_louver_50_v01.stl", file_3mf: "scifi_wall_louver_50_v01.3mf", print_orientation: "Face-down", supports: false, bed_texture_finish: true, notes: "Prepared asset. Not assigned to prototype geometry yet." },
+  { id: "scifi_wall_hatch_50_v01", name: "Sci-Fi Wall Hatch", category: "wall", theme: "scifi", variant: "hatch", width_mm: 50, depth_mm: 8, height_mm: 50, file_stl: "scifi_wall_hatch_50_v01.stl", file_3mf: "scifi_wall_hatch_50_v01.3mf", print_orientation: "Face-down", supports: false, bed_texture_finish: true, notes: "Prepared asset. Not assigned to prototype geometry yet." },
+  { id: "scifi_wall_vent_50_v01", name: "Sci-Fi Wall Vent", category: "wall", theme: "scifi", variant: "vent", width_mm: 50, depth_mm: 8, height_mm: 50, file_stl: "scifi_wall_vent_50_v01.stl", file_3mf: "scifi_wall_vent_50_v01.3mf", print_orientation: "Face-down", supports: false, bed_texture_finish: true, notes: "Prepared asset. Not assigned to prototype geometry yet." },
+  { id: "scifi_connector_floor_h_v01", name: "Floor H Connector", category: "connector", theme: "scifi", variant: "floor_h_connector", width_mm: 18, depth_mm: 8, height_mm: 4, file_stl: "scifi_connector_floor_h_v01.stl", file_3mf: "scifi_connector_floor_h_v01.3mf", print_orientation: "Flat", supports: false, bed_texture_finish: false, notes: "Connector used between floor modules." },
+  { id: "scifi_connector_wall_clip_v01", name: "Wall Clip Connector", category: "connector", theme: "scifi", variant: "wall_clip", width_mm: 14, depth_mm: 10, height_mm: 18, file_stl: "scifi_connector_wall_clip_v01.stl", file_3mf: "scifi_connector_wall_clip_v01.3mf", print_orientation: "Flat", supports: false, bed_texture_finish: false, notes: "Approximate wall connector count equals total wall tile count." },
+  { id: "scifi_trim_front_50_v01", name: "Front Trim", category: "trim", theme: "scifi", variant: "front_trim", width_mm: 50, depth_mm: 8, height_mm: 8, file_stl: "scifi_trim_front_50_v01.stl", file_3mf: "scifi_trim_front_50_v01.3mf", print_orientation: "Flat", supports: false, bed_texture_finish: false, notes: "Front finishing trim." },
+  { id: "scifi_trim_side_50_v01", name: "Side Trim", category: "trim", theme: "scifi", variant: "side_trim", width_mm: 50, depth_mm: 8, height_mm: 8, file_stl: "scifi_trim_side_50_v01.stl", file_3mf: "scifi_trim_side_50_v01.3mf", print_orientation: "Flat", supports: false, bed_texture_finish: false, notes: "Side finishing trim for lateral wall edges." },
+  { id: "scifi_accessory_vent_v01", name: "Accessory Vent", category: "accessory", theme: "scifi", variant: "vent", width_mm: 25, depth_mm: 8, height_mm: 25, file_stl: "scifi_accessory_vent_v01.stl", file_3mf: "scifi_accessory_vent_v01.3mf", print_orientation: "Flat", supports: false, bed_texture_finish: false, notes: "Optional accessory. Not included by default." },
+  { id: "scifi_accessory_pipe_v01", name: "Accessory Pipe", category: "accessory", theme: "scifi", variant: "pipe", width_mm: 40, depth_mm: 12, height_mm: 12, file_stl: "scifi_accessory_pipe_v01.stl", file_3mf: "scifi_accessory_pipe_v01.3mf", print_orientation: "Flat", supports: true, bed_texture_finish: false, notes: "Optional pipe accessory." },
+  { id: "scifi_accessory_manhole_v01", name: "Accessory Manhole", category: "accessory", theme: "scifi", variant: "manhole", width_mm: 38, depth_mm: 38, height_mm: 3, file_stl: "scifi_accessory_manhole_v01.stl", file_3mf: "scifi_accessory_manhole_v01.3mf", print_orientation: "Face-down", supports: false, bed_texture_finish: true, notes: "Optional floor accessory." }
+];
+
+const ASSET_BY_ID = Object.fromEntries(CATALOG.map((asset) => [asset.id, asset]));
+const DEFAULT_CONFIG = { theme: "Sci-Fi", scale: "1:12", width: 3, depth: 3, height: 3, backWall: true, leftWall: false, rightWall: false };
+const DEFAULT_MODEL_BY_TYPE = { floor: "scifi_floor_base_a_50_v01", wall: "scifi_wall_base_a_50_v01" };
+const LIBRARY_ITEMS = [
+  { key: "plain", label: "Plain Tile", family: "floor", iconSrc: "/icons/SCIFI_FLOOR_1x1_A.svg" },
+  { key: "corner", label: "Corner Slots", family: "floor", iconSrc: "/icons/SCIFI_FLOOR_1x1_B.svg" },
+  { key: "louver", label: "Louver", family: "floor", iconSrc: "/icons/SCIFI_FLOOR_1x1_C.svg" },
+  { key: "modular", label: "Wall Light", family: "wall", iconSrc: "/icons/SCIFI_WALL_1x1_A.svg" },
+  { key: "hatch", label: "Hatch", family: "wall", iconSrc: "/icons/SCIFI_WALL_1x1_B.svg" },
+  { key: "vent", label: "Vent", family: "wall", iconSrc: "/icons/SCIFI_WALL_1x1_C.svg" }
+];
+const TOOLBAR = [
+  { key: "select", label: "Select", icon: "↖" },
+  { key: "library", label: "Library", icon: "▧" },
+  { key: "group", label: "Group", icon: "□" },
+  { key: "rotate", label: "Rotate", icon: "⟳" },
+  { key: "flip", label: "Flip", icon: "⇄" },
+  { key: "paint", label: "Paint", icon: "◉" },
+  { key: "ruler", label: "Ruler", icon: "⌁" }
+];
+
+function cx() { return Array.from(arguments).filter(Boolean).join(" "); }
+function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+function getTileType(tileId) { if (tileId.startsWith("floor_")) return "floor"; if (tileId.startsWith("wall_")) return "wall"; return "unknown"; }
+function getWallRotationY(side) { if (side === "left") return Math.PI / 2; if (side === "right") return -Math.PI / 2; return 0; }
+
+function getModelForLibraryAction(actionKey, tileType) {
+  if (tileType === "floor") {
+    if (actionKey === "plain") return "scifi_floor_base_a_50_v01";
+    if (actionKey === "corner") return "scifi_floor_base_b_50_v01";
+    if (actionKey === "modular") return "scifi_floor_base_c_50_v01";
+    return null;
+  }
+  if (tileType === "wall") {
+    if (actionKey === "plain") return "scifi_wall_base_a_50_v01";
+    if (actionKey === "corner") return "scifi_wall_base_b_50_v01";
+    if (actionKey === "modular") return "scifi_wall_base_c_50_v01";
+    return null;
+  }
+  return null;
+}
+
+function makeTiles(config, previousById = {}) {
+  const tiles = [];
+  for (let x = 0; x < config.width; x += 1) {
+    for (let z = 0; z < config.depth; z += 1) {
+      const id = `floor_${x}_${z}`;
+      const previous = previousById[id] || {};
+      tiles.push({ id, type: "floor", side: "floor", x, z, h: 0, modelId: previous.modelId || DEFAULT_MODEL_BY_TYPE.floor, color: previous.color || "#30333a", rotation: previous.rotation || 0, flip: previous.flip || false, groupId: previous.groupId || null });
+    }
+  }
+  if (config.backWall) {
+    for (let x = 0; x < config.width; x += 1) {
+      for (let h = 0; h < config.height; h += 1) {
+        const id = `wall_back_${x}_h${h}`;
+        const previous = previousById[id] || {};
+        tiles.push({ id, type: "wall", side: "back", x, z: 0, h, modelId: previous.modelId || DEFAULT_MODEL_BY_TYPE.wall, color: previous.color || "#343741", rotation: previous.rotation || 0, flip: previous.flip || false, groupId: previous.groupId || null });
+      }
+    }
+  }
+  if (config.leftWall) {
+    for (let z = 0; z < config.depth; z += 1) {
+      for (let h = 0; h < config.height; h += 1) {
+        const id = `wall_left_${z}_h${h}`;
+        const previous = previousById[id] || {};
+        tiles.push({ id, type: "wall", side: "left", x: 0, z, h, modelId: previous.modelId || DEFAULT_MODEL_BY_TYPE.wall, color: previous.color || "#343741", rotation: previous.rotation || 0, flip: previous.flip || false, groupId: previous.groupId || null });
+      }
+    }
+  }
+  if (config.rightWall) {
+    for (let z = 0; z < config.depth; z += 1) {
+      for (let h = 0; h < config.height; h += 1) {
+        const id = `wall_right_${z}_h${h}`;
+        const previous = previousById[id] || {};
+        tiles.push({ id, type: "wall", side: "right", x: config.width - 1, z, h, modelId: previous.modelId || DEFAULT_MODEL_BY_TYPE.wall, color: previous.color || "#343741", rotation: previous.rotation || 0, flip: previous.flip || false, groupId: previous.groupId || null });
+      }
+    }
+  }
+  return tiles;
+}
+
+function getTileTransform(tile, config) {
+  const rotationRad = THREE.MathUtils.degToRad(tile.rotation || 0);
+  const halfW = (config.width * UNIT) / 2;
+  const halfD = (config.depth * UNIT) / 2;
+  const offset = TILE_THICKNESS / 2;
+  if (tile.type === "floor") return { position: [(tile.x + 0.5) * UNIT - halfW, TILE_THICKNESS / 2, (tile.z + 0.5) * UNIT - halfD], rotation: [0, rotationRad, 0], size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT] };
+  if (tile.side === "back") return { position: [(tile.x + 0.5) * UNIT - halfW, (tile.h + 0.5) * UNIT, -halfD - offset], rotation: [-Math.PI / 2, getWallRotationY(tile.side), rotationRad], rotationOrder: "YXZ", size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT] };
+  if (tile.side === "left") return { position: [-halfW - offset, (tile.h + 0.5) * UNIT, (tile.z + 0.5) * UNIT - halfD], rotation: [-Math.PI / 2, getWallRotationY(tile.side), rotationRad], rotationOrder: "YXZ", size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT] };
+  if (tile.side === "right") return { position: [halfW + offset, (tile.h + 0.5) * UNIT, (tile.z + 0.5) * UNIT - halfD], rotation: [-Math.PI / 2, getWallRotationY(tile.side), rotationRad], rotationOrder: "YXZ", size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT] };
+  return { position: [0, 0, 0], rotation: [0, 0, 0], size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT] };
+}
+
+function countByModel(tiles) {
+  const result = {};
+  tiles.forEach((tile) => { result[tile.modelId] = (result[tile.modelId] || 0) + 1; });
+  return result;
+}
+
+function buildPrintList(config, tiles) {
+  const counts = countByModel(tiles);
+  const floorConnectors = Math.max(0, (config.width - 1) * config.depth + (config.depth - 1) * config.width);
+  const wallTiles = (config.backWall ? config.width * config.height : 0) + (config.leftWall ? config.depth * config.height : 0) + (config.rightWall ? config.depth * config.height : 0);
+  const sideTrims = (config.leftWall ? config.depth : 0) + (config.rightWall ? config.depth : 0);
+  counts.scifi_connector_floor_h_v01 = (counts.scifi_connector_floor_h_v01 || 0) + floorConnectors;
+  counts.scifi_trim_front_50_v01 = (counts.scifi_trim_front_50_v01 || 0) + config.width;
+  if (wallTiles > 0) counts.scifi_connector_wall_clip_v01 = (counts.scifi_connector_wall_clip_v01 || 0) + wallTiles;
+  if (sideTrims > 0) counts.scifi_trim_side_50_v01 = (counts.scifi_trim_side_50_v01 || 0) + sideTrims;
+  const grouped = { floor: [], wall: [], connector: [], trim: [], accessory: [] };
+  Object.keys(counts).forEach((assetId) => {
+    const asset = ASSET_BY_ID[assetId];
+    const quantity = counts[assetId];
+    if (!asset || quantity < 1) return;
+    grouped[asset.category].push({ quantity, asset });
+  });
+  Object.keys(grouped).forEach((category) => grouped[category].sort((a, b) => a.asset.name.localeCompare(b.asset.name)));
+  return grouped;
+}
+
+function makeBuildText(config, printList) {
+  const sections = ["MODULAR DIORAMA CONFIGURATOR", "================================", "", "Configuration", "Theme: " + config.theme, "Scale: " + config.scale, "Grid: " + config.width + " x " + config.depth + " x " + config.height + " modules", "Module size: " + MODULE_MM + " mm", "Width: " + config.width * MODULE_MM + " mm", "Depth: " + config.depth * MODULE_MM + " mm", "Height: " + config.height * MODULE_MM + " mm", "Back Wall: " + (config.backWall ? "Yes" : "No"), "Left Wall: " + (config.leftWall ? "Yes" : "No"), "Right Wall: " + (config.rightWall ? "Yes" : "No"), "", "Print List", "----------"];
+  const labels = { floor: "Floors", wall: "Walls", connector: "Connectors", trim: "Trims", accessory: "Accessories" };
+  Object.keys(labels).forEach((category) => {
+    sections.push("", labels[category]);
+    const items = printList[category] || [];
+    if (items.length === 0) sections.push("- None");
+    items.forEach((entry) => {
+      const asset = entry.asset;
+      sections.push("- " + entry.quantity + "x " + asset.name, "  STL: " + asset.file_stl, "  3MF: " + asset.file_3mf, "  Orientation: " + asset.print_orientation, "  Supports: " + (asset.supports ? "Yes" : "No"), "  Bed texture finish: " + (asset.bed_texture_finish ? "Yes" : "No"), "  Notes: " + asset.notes);
+    });
+  });
+  return sections.join("\n");
+}
+
+function createTextSprite(text, color) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 128;
+  const context = canvas.getContext("2d");
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.font = "600 48px Arial";
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillStyle = color;
+  context.fillText(text, 256, 64);
+  const texture = new THREE.CanvasTexture(canvas);
+  const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: true, depthWrite: false });
+  const sprite = new THREE.Sprite(material);
+  sprite.scale.set(0.42, 0.105, 1);
+  return sprite;
+}
+
+function makeMediumGrayMaterial(material) {
+  if (Array.isArray(material)) return material.map((entry) => makeMediumGrayMaterial(entry));
+  const next = material && material.clone ? material.clone() : new THREE.MeshStandardMaterial({ roughness: 0.78, metalness: 0.08 });
+  if (next.color) next.color.set(MODEL_BASE_COLOR);
+  if (next.emissive) {
+    next.emissive.set("#000000");
+    next.emissiveIntensity = 0;
+  }
+  return next;
+}
+
+function setObjectTransform(object, transform) {
+  object.position.set(transform.position[0], transform.position[1], transform.position[2]);
+  object.rotation.set(transform.rotation[0], transform.rotation[1], transform.rotation[2], transform.rotationOrder || "XYZ");
+}
+
+function makeSelectionEdges() {
+  const geometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(VISUAL_TILE_UNIT + 0.01, TILE_THICKNESS + 0.006, VISUAL_TILE_UNIT + 0.01));
+  const material = new THREE.LineBasicMaterial({ color: "#ff2d2d", depthTest: true, depthWrite: false });
+  const edges = new THREE.LineSegments(geometry, material);
+  edges.raycast = function () {};
+  return edges;
+}
+
+function makeVariantGroup(variant) {
+  const group = new THREE.Group();
+  const dark = new THREE.MeshStandardMaterial({ color: MODEL_BASE_COLOR, roughness: 0.9 });
+  if (variant === "base_b") {
+    [[-0.16, -0.16], [0.16, -0.16], [-0.16, 0.16], [0.16, 0.16]].forEach(([x, z]) => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.006, 0.08), dark.clone());
+      mesh.position.set(x, TILE_THICKNESS + 0.003, z);
+      group.add(mesh);
+    });
+  }
+  if (variant === "base_c") {
+    const a = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.006, 0.015), dark.clone());
+    const b = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.006, 0.46), dark.clone());
+    a.position.y = TILE_THICKNESS + 0.003;
+    b.position.y = TILE_THICKNESS + 0.003;
+    group.add(a, b);
+  }
+  return group;
+}
+
+function ThreeViewport({ config, tiles, selectedIds, onSelectTile, clearSelection, showRuler }) {
+  const hostRef = useRef(null);
+  const dataRef = useRef({ config, tiles, selectedIds, onSelectTile, clearSelection, showRuler });
+
+  useEffect(() => {
+    dataRef.current = { config, tiles, selectedIds, onSelectTile, clearSelection, showRuler };
+  }, [config, tiles, selectedIds, onSelectTile, clearSelection, showRuler]);
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return undefined;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color("#18191c");
+    scene.fog = new THREE.Fog("#18191c", 5, 12);
+    let disposed = false;
+
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 100);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.shadowMap.enabled = false;
+    host.appendChild(renderer.domElement);
+
+    const ambient = new THREE.AmbientLight("#ffffff", 0.72);
+    const key = new THREE.DirectionalLight("#ffffff", 1.3);
+    key.position.set(4, 6, 5);
+    key.castShadow = false;
+    const fill = new THREE.DirectionalLight("#ffffff", 0.35);
+    fill.position.set(-3, 3, -3);
+    scene.add(ambient, key, fill);
+
+    const tileRoot = new THREE.Group();
+    const rulerRoot = new THREE.Group();
+    const gridRoot = new THREE.Group();
+    scene.add(gridRoot, tileRoot, rulerRoot);
+    let floorBaseModel = null;
+
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    const hitboxes = [];
+    const controls = { theta: 0.72, phi: 1.08, radius: 4.2, target: new THREE.Vector3(0, 0.45, 0), dragging: false, panning: false, x: 0, y: 0, moved: false };
+
+    function updateCamera() {
+      const sinPhi = Math.sin(controls.phi);
+      camera.position.set(controls.target.x + controls.radius * sinPhi * Math.sin(controls.theta), controls.target.y + controls.radius * Math.cos(controls.phi), controls.target.z + controls.radius * sinPhi * Math.cos(controls.theta));
+      camera.lookAt(controls.target);
+    }
+
+    function resize() {
+      const width = Math.max(1, host.clientWidth);
+      const height = Math.max(1, host.clientHeight);
+      renderer.setSize(width, height, false);
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+    }
+
+    function disposeObject(object) {
+      object.traverse((child) => {
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) {
+          if (Array.isArray(child.material)) child.material.forEach((m) => m.dispose && m.dispose());
+          else child.material.dispose && child.material.dispose();
+        }
+      });
+    }
+
+    function clearGroup(group) {
+      while (group.children.length) {
+        const child = group.children.pop();
+        disposeObject(child);
+      }
+    }
+
+    function buildGrid() {
+      clearGroup(gridRoot);
+      const size = 12;
+      const divisions = 24;
+      const grid = new THREE.GridHelper(size, divisions, "#3a3d46", "#30323a");
+      grid.position.y = -0.005;
+      gridRoot.add(grid);
+    }
+
+    function line(points, color) {
+      const geometry = new THREE.BufferGeometry().setFromPoints(points.map((p) => new THREE.Vector3(p[0], p[1], p[2])));
+      const material = new THREE.LineBasicMaterial({ color });
+      return new THREE.Line(geometry, material);
+    }
+
+    function makeSphere(position, color) {
+      const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.018, 12, 12), new THREE.MeshBasicMaterial({ color }));
+      mesh.position.set(position[0], position[1], position[2]);
+      return mesh;
+    }
+
+    function buildRulers(currentConfig, visible) {
+      clearGroup(rulerRoot);
+      if (!visible) return;
+      const width = currentConfig.width * UNIT;
+      const depth = currentConfig.depth * UNIT;
+      const height = currentConfig.height * UNIT;
+      const blue = "#60a5fa";
+      const hasWall = currentConfig.backWall || currentConfig.leftWall || currentConfig.rightWall;
+      const widthA = [-width / 2, 0.055, depth / 2 + 0.2];
+      const widthB = [width / 2, 0.055, depth / 2 + 0.2];
+      const depthA = [width / 2 + 0.2, 0.055, -depth / 2];
+      const depthB = [width / 2 + 0.2, 0.055, depth / 2];
+      rulerRoot.add(line([widthA, widthB], blue), makeSphere(widthA, blue), makeSphere(widthB, blue));
+      const widthText = createTextSprite(currentConfig.width * MODULE_MM + " mm", blue);
+      widthText.position.set(0, 0.12, depth / 2 + 0.2);
+      rulerRoot.add(widthText);
+      rulerRoot.add(line([depthA, depthB], blue), makeSphere(depthA, blue), makeSphere(depthB, blue));
+      const depthText = createTextSprite(currentConfig.depth * MODULE_MM + " mm", blue);
+      depthText.position.set(width / 2 + 0.28, 0.12, 0);
+      rulerRoot.add(depthText);
+      if (hasWall) {
+        const backPlaneZ = -depth / 2 - 0.13;
+        const heightA = [-width / 2 - 0.18, 0, backPlaneZ];
+        const heightB = [-width / 2 - 0.18, height, backPlaneZ];
+        rulerRoot.add(line([heightA, heightB], blue), makeSphere(heightA, blue), makeSphere(heightB, blue));
+        const heightText = createTextSprite(currentConfig.height * MODULE_MM + " mm", blue);
+        heightText.position.set(-width / 2 - 0.28, height / 2, backPlaneZ);
+        rulerRoot.add(heightText);
+      }
+    }
+
+    function makeFloorBaseModel(selected) {
+      if (!floorBaseModel) return null;
+      const model = floorBaseModel.clone(true);
+      model.traverse((child) => {
+        if (!child.isMesh) return;
+        child.geometry = child.geometry.clone();
+        child.material = makeMediumGrayMaterial(child.material);
+        child.castShadow = false;
+        child.receiveShadow = false;
+        child.raycast = function () {};
+      });
+      return model;
+    }
+
+    function buildTiles(currentConfig, currentTiles, currentSelected) {
+      clearGroup(tileRoot);
+      hitboxes.length = 0;
+      const hitGeometry = new THREE.BoxGeometry(UNIT, 0.16, UNIT);
+      currentTiles.forEach((tile) => {
+        const transform = getTileTransform(tile, currentConfig);
+        const asset = ASSET_BY_ID[tile.modelId];
+        const selected = currentSelected.includes(tile.id);
+        const group = new THREE.Group();
+        setObjectTransform(group, transform);
+        if (tile.flip) group.scale.x = -1;
+        const model = makeFloorBaseModel(selected);
+        if (model) group.add(model);
+        else {
+          const material = new THREE.MeshStandardMaterial({ color: MODEL_BASE_COLOR, roughness: 0.78, metalness: 0.08, emissive: new THREE.Color("#000000"), emissiveIntensity: 0 });
+          const mesh = new THREE.Mesh(new THREE.BoxGeometry(VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT), material);
+          mesh.castShadow = false;
+          mesh.receiveShadow = false;
+          mesh.raycast = function () {};
+          group.add(mesh);
+          const variantGroup = makeVariantGroup(asset ? asset.variant : "base_a");
+          variantGroup.traverse((child) => { child.raycast = function () {}; });
+          group.add(variantGroup);
+        }
+        if (selected) {
+          group.add(makeSelectionEdges());
+        }
+        const hitbox = new THREE.Mesh(hitGeometry.clone(), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+        hitbox.userData.tileId = tile.id;
+        group.add(hitbox);
+        hitboxes.push(hitbox);
+        tileRoot.add(group);
+      });
+    }
+
+    function rebuild() {
+      const current = dataRef.current;
+      buildTiles(current.config, current.tiles, current.selectedIds);
+      buildRulers(current.config, current.showRuler);
+    }
+
+    const gltfLoader = new GLTFLoader();
+    gltfLoader.load("/models/floor%20Base%20A.gltf", (gltf) => {
+      if (disposed) return;
+      floorBaseModel = gltf.scene;
+      floorBaseModel.traverse((child) => {
+        if (!child.isMesh) return;
+        child.raycast = function () {};
+      });
+      rebuild();
+    }, undefined, (error) => {
+      console.warn("Could not load floor Base A.gltf", error);
+    });
+
+    function setPointer(event) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    }
+
+    function pointerDown(event) {
+      controls.dragging = true;
+      controls.panning = event.button === 2 || event.altKey;
+      controls.x = event.clientX;
+      controls.y = event.clientY;
+      controls.moved = false;
+      renderer.domElement.setPointerCapture(event.pointerId);
+    }
+
+    function pointerMove(event) {
+      if (!controls.dragging) return;
+      const dx = event.clientX - controls.x;
+      const dy = event.clientY - controls.y;
+      if (Math.abs(dx) + Math.abs(dy) > 3) controls.moved = true;
+      controls.x = event.clientX;
+      controls.y = event.clientY;
+      if (controls.panning) {
+        const panScale = controls.radius * 0.0015;
+        const right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0);
+        const up = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 1);
+        controls.target.addScaledVector(right, -dx * panScale);
+        controls.target.addScaledVector(up, dy * panScale);
+      } else {
+        controls.theta -= dx * 0.006;
+        controls.phi = clamp(controls.phi - dy * 0.006, 0.18, Math.PI / 2 - 0.02);
+      }
+      updateCamera();
+    }
+
+    function pointerUp(event) {
+      if (!controls.dragging) return;
+      controls.dragging = false;
+      try { renderer.domElement.releasePointerCapture(event.pointerId); } catch (error) {}
+      if (controls.moved) return;
+      setPointer(event);
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObjects(hitboxes, false);
+      if (hits.length) {
+        const tileId = hits[0].object.userData.tileId;
+        dataRef.current.onSelectTile(tileId, event.shiftKey || event.ctrlKey || event.metaKey);
+      } else {
+        dataRef.current.clearSelection();
+      }
+    }
+
+    function wheel(event) {
+      event.preventDefault();
+      controls.radius = clamp(controls.radius + event.deltaY * 0.0025, 1.1, 8);
+      updateCamera();
+    }
+
+    function contextMenu(event) { event.preventDefault(); }
+
+    buildGrid();
+    resize();
+    updateCamera();
+    rebuild();
+
+    let frame = 0;
+    function animate() {
+      frame = requestAnimationFrame(animate);
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    const resizeObserver = new ResizeObserver(resize);
+    resizeObserver.observe(host);
+    renderer.domElement.addEventListener("pointerdown", pointerDown);
+    renderer.domElement.addEventListener("pointermove", pointerMove);
+    renderer.domElement.addEventListener("pointerup", pointerUp);
+    renderer.domElement.addEventListener("pointercancel", pointerUp);
+    renderer.domElement.addEventListener("wheel", wheel, { passive: false });
+    renderer.domElement.addEventListener("contextmenu", contextMenu);
+
+    return () => {
+      disposed = true;
+      cancelAnimationFrame(frame);
+      resizeObserver.disconnect();
+      renderer.domElement.removeEventListener("pointerdown", pointerDown);
+      renderer.domElement.removeEventListener("pointermove", pointerMove);
+      renderer.domElement.removeEventListener("pointerup", pointerUp);
+      renderer.domElement.removeEventListener("pointercancel", pointerUp);
+      renderer.domElement.removeEventListener("wheel", wheel);
+      renderer.domElement.removeEventListener("contextmenu", contextMenu);
+      clearGroup(tileRoot);
+      clearGroup(rulerRoot);
+      clearGroup(gridRoot);
+      renderer.dispose();
+      if (renderer.domElement.parentNode === host) host.removeChild(renderer.domElement);
+    };
+  }, []);
+
+  useEffect(() => {
+    const event = new CustomEvent("three-viewport-rebuild");
+    window.dispatchEvent(event);
+  }, [config, tiles, selectedIds, showRuler]);
+
+  useEffect(() => {
+    const handler = () => {};
+    window.addEventListener("three-viewport-rebuild", handler);
+    return () => window.removeEventListener("three-viewport-rebuild", handler);
+  }, []);
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return undefined;
+    const marker = host.dataset.rebuildMarker || "0";
+    host.dataset.rebuildMarker = String(Number(marker) + 1);
+    return undefined;
+  }, [config, tiles, selectedIds, showRuler]);
+
+  return <div ref={hostRef} className="threeHost" />;
+}
+
+function ThreeViewportWrapper(props) {
+  const [refreshKey, setRefreshKey] = useState(0);
+  const latest = useRef(null);
+  latest.current = props;
+
+  useEffect(() => {
+    setRefreshKey((value) => value + 1);
+  }, [props.config, props.tiles, props.selectedIds, props.showRuler]);
+
+  return <ThreeViewport key={refreshKey} {...props} />;
+}
+
+function runLogicTests() {
+  const config = { ...DEFAULT_CONFIG };
+  const tiles = makeTiles(config);
+  const floors = tiles.filter((tile) => tile.type === "floor");
+  const backWalls = tiles.filter((tile) => tile.side === "back");
+  const printList = buildPrintList(config, tiles);
+  const floorConnector = printList.connector.find((item) => item.asset.id === "scifi_connector_floor_h_v01");
+  const wallConnector = printList.connector.find((item) => item.asset.id === "scifi_connector_wall_clip_v01");
+  const backTransform = getTileTransform(backWalls[0], config);
+  console.assert(floors.length === 9, "Expected 9 floor tiles in the default 3x3 scene");
+  console.assert(backWalls.length === 9, "Expected 9 back wall tiles in the default scene");
+  console.assert(getModelForLibraryAction("corner", "floor") === "scifi_floor_base_b_50_v01", "Corner Slots must map floor tiles to Floor Base B");
+  console.assert(getModelForLibraryAction("corner", "wall") === "scifi_wall_base_b_50_v01", "Corner Slots must map wall tiles to Wall Base B");
+  console.assert(getModelForLibraryAction("modular", "floor") === "scifi_floor_base_c_50_v01", "Modular 2x2 must map floor tiles to Floor Base C");
+  console.assert(getModelForLibraryAction("modular", "wall") === "scifi_wall_base_c_50_v01", "Modular 2x2 must map wall tiles to Wall Base C");
+  console.assert(getModelForLibraryAction("louver", "floor") === null, "Louver must not replace floor tiles");
+  console.assert(floorConnector && floorConnector.quantity === 12, "Expected 12 floor connectors for a 3x3 floor grid");
+  console.assert(wallConnector && wallConnector.quantity === 9, "Expected 9 wall connectors for a 3x3 back wall");
+  console.assert(backTransform.rotation[0] === -Math.PI / 2, "Back wall tile must be vertical");
+  console.assert(backTransform.position[1] === 0.25, "First back wall tile must start at half-module height");
+}
+
+if (typeof window !== "undefined" && !window.__MODULAR_DIORAMA_THREE_VANILLA_TESTS__) {
+  window.__MODULAR_DIORAMA_THREE_VANILLA_TESTS__ = true;
+  runLogicTests();
+}
+
+function MiniIcon({ icon }) { return <span className="miniIcon">{icon}</span>; }
+
+function TopBar({ onExport }) {
+  return <header className="topBar"><div className="brandArea"><div className="appMark">▧</div><div className="appTitle">Modular Diorama Configurator</div><button className="tinyTool" title="Scene">▦</button><button className="tinyTool" title="Assets">▤</button><button className="tinyTool" title="Grid">⌗</button></div><div className="topActions"><button className="topButton">Share</button><button className="topButton primary" onClick={onExport}>Export</button></div></header>;
+}
+
+function Tag({ children, active }) { return <span className={active ? "tag active" : "tag"}>{children}</span>; }
+
+function LeftPanel({ activeTab, setActiveTab, printList, onCopy, onDownload }) {
+  const labels = { floor: "Floors", wall: "Walls", connector: "Connectors", trim: "Trims", accessory: "Accessories" };
+  return <aside className="leftPanel"><div className="panelHeader"><div className="panelTitle">Diorama Configurator</div><div className="panelSub">Printable modular 3D scene builder</div><div className="tabs"><button className={activeTab === "print" ? "tab active" : "tab"} onClick={() => setActiveTab("print")}>Print List</button><button className={activeTab === "assets" ? "tab active" : "tab"} onClick={() => setActiveTab("assets")}>Assets</button></div></div><div className="panelScroll">{activeTab === "print" ? Object.keys(labels).map((category) => { const items = printList[category] || []; const total = items.reduce((sum, item) => sum + item.quantity, 0); return <section className="printGroup" key={category}><div className="groupHeader"><span>{labels[category]}</span><span>{total} pcs</span></div><div className="groupBody">{items.length === 0 ? <div className="emptyLine">No parts required.</div> : null}{items.map((entry) => <div className="partCard" key={entry.asset.id}><div className="partName"><b>{entry.quantity}×</b> {entry.asset.name}</div><div className="fileName">{entry.asset.file_stl}</div><div className="tagRow"><Tag active={entry.asset.print_orientation === "Face-down"}>{entry.asset.print_orientation}</Tag><Tag active={!entry.asset.supports}>{entry.asset.supports ? "Supports" : "No supports"}</Tag>{entry.asset.bed_texture_finish ? <Tag active>Bed texture finish</Tag> : null}</div></div>)}</div></section>; }) : <div className="assetList">{CATALOG.map((asset) => <div className="assetCard" key={asset.id}><div className="assetName">{asset.name}</div><div className="assetId">{asset.id}</div><div className="tagRow"><Tag>{asset.category}</Tag><Tag>{asset.variant}</Tag></div></div>)}</div>}</div><div className="panelFooter twoButtons"><button className="panelButton" onClick={onCopy}>Copy Build List</button><button className="panelButton" onClick={onDownload}>Download TXT</button></div></aside>;
+}
+
+function Stepper({ label, value, min, max, onChange }) {
+  return <div className="stepperRow"><div><div className="fieldTitle">{label}</div><div className="fieldHint">50mm module</div></div><div className="stepper"><button onClick={() => onChange(clamp(value - 1, min, max))}>−</button><span>{value}</span><button onClick={() => onChange(clamp(value + 1, min, max))}>+</button></div></div>;
+}
+
+function Toggle({ label, value, onChange }) {
+  return <div className="toggleRow"><span>{label}</span><button className={value ? "toggle on" : "toggle"} onClick={() => onChange(!value)}>{value ? "Yes" : "No"}</button></div>;
+}
+
+function RightPanel({ config, setConfig, activeColor, setActiveColor, selectionCount, onReset }) {
+  return <aside className="rightPanel"><div className="panelHeader inspectorHeader"><div><div className="panelTitle">Inspector</div><div className="panelSub">{selectionCount} selected tile{selectionCount === 1 ? "" : "s"}</div></div><button className="iconButton" onClick={onReset} title="Reset Configuration">↺</button></div><div className="panelScroll settingsScroll"><section className="settingsBlock"><div className="settingsTitle">Tool Color</div><div className="colorRow"><input type="color" value={activeColor} onChange={(event) => setActiveColor(event.target.value)} /><span>{activeColor}</span></div></section><section className="settingsBlock"><div className="settingsTitle">Global Settings</div><label className="label">Theme</label><select value={config.theme} onChange={(event) => setConfig({ theme: event.target.value })}><option>Sci-Fi</option><option>Urban</option><option>Industrial</option></select><label className="label withTop">Scale</label><select value={config.scale} onChange={(event) => setConfig({ scale: event.target.value })}><option>1:12</option><option>1:10</option><option>Custom</option></select></section><section className="settingsBlock stack"><div className="settingsTitle">Grid</div><Stepper label="Width" value={config.width} min={1} max={10} onChange={(value) => setConfig({ width: value })} /><Stepper label="Depth" value={config.depth} min={1} max={10} onChange={(value) => setConfig({ depth: value })} /><Stepper label="Height" value={config.height} min={1} max={8} onChange={(value) => setConfig({ height: value })} /><div className="sizeBox">Size: <b>{config.width * MODULE_MM} mm</b> × <b>{config.depth * MODULE_MM} mm</b> × <b>{config.height * MODULE_MM} mm</b></div></section><section className="settingsBlock stack"><div className="settingsTitle">Walls</div><Toggle label="Back Wall" value={config.backWall} onChange={(value) => setConfig({ backWall: value })} /><Toggle label="Left Wall" value={config.leftWall} onChange={(value) => setConfig({ leftWall: value })} /><Toggle label="Right Wall" value={config.rightWall} onChange={(value) => setConfig({ rightWall: value })} /></section></div></aside>;
+}
+
+function Toolbar({ activeTool, setActiveTool, showLibrary, setShowLibrary, showRuler, setShowRuler, onGroup, onRotate, onFlip, onPaint }) {
+  function runTool(toolKey) {
+    if (toolKey === "library") { setShowLibrary((value) => !value); return; }
+    if (toolKey === "group") { setActiveTool("group"); onGroup(); return; }
+    if (toolKey === "rotate") { setActiveTool("rotate"); onRotate(); return; }
+    if (toolKey === "flip") { setActiveTool("flip"); onFlip(); return; }
+    if (toolKey === "paint") { setActiveTool("paint"); onPaint(); return; }
+    if (toolKey === "ruler") { setShowRuler((value) => !value); return; }
+    setActiveTool(toolKey);
+  }
+  return <div className="floatingToolbar">{TOOLBAR.map((tool) => <button key={tool.key} title={tool.label} className={cx("toolButton", activeTool === tool.key ? "active" : "", tool.key === "library" && showLibrary ? "active" : "", tool.key === "ruler" && showRuler ? "active" : "")} onClick={() => runTool(tool.key)}><MiniIcon icon={tool.icon} /></button>)}</div>;
+}
+
+function LibraryPopup({ show, onApply }) {
+  if (!show) return null;
+  const groups = [
+    { key: "floor", label: "Floor", items: LIBRARY_ITEMS.filter((item) => item.family === "floor") },
+    { key: "wall", label: "Wall", items: LIBRARY_ITEMS.filter((item) => item.family === "wall") }
+  ];
+  return <div className="libraryPopup">{groups.map((group) => <div className="libraryGroup" key={group.key}><div className="libraryGroupTitle">{group.label}</div><div className="libraryGroupItems">{group.items.map((item) => <button className="libraryItem" key={item.key} onClick={() => onApply(item.key)} title={item.label}><span className="libraryIcon" style={{ "--icon-url": `url("${item.iconSrc}")` }} /><span>{item.label}</span></button>)}</div></div>)}</div>;
+}
+
+function Viewport({ config, tiles, setTiles, selectedIds, setSelectedIds, activeColor, showRuler, setShowRuler }) {
+  const [activeTool, setActiveTool] = useState("select");
+  const [showLibrary, setShowLibrary] = useState(false);
+  const groupCounter = useRef(1);
+
+  function onSelectTile(tileId, additive) {
+    setSelectedIds((previous) => {
+      if (!additive) return [tileId];
+      if (previous.includes(tileId)) return previous.filter((id) => id !== tileId);
+      return previous.concat(tileId);
+    });
+  }
+
+  function clearSelection() { setSelectedIds([]); }
+
+  function applyLibraryModel(actionKey) {
+    if (selectedIds.length === 0) return;
+    setTiles((previous) => previous.map((tile) => {
+      if (!selectedIds.includes(tile.id)) return tile;
+      const modelId = getModelForLibraryAction(actionKey, getTileType(tile.id));
+      if (!modelId) { console.warn("No prototype model assigned for", actionKey, "on", tile.type, ". Tile preserved:", tile.id); return tile; }
+      return { ...tile, modelId };
+    }));
+  }
+
+  function paintSelected() { if (selectedIds.length === 0) return; setTiles((previous) => previous.map((tile) => selectedIds.includes(tile.id) ? { ...tile, color: activeColor } : tile)); }
+  function rotateSelected() { if (selectedIds.length === 0) return; setTiles((previous) => previous.map((tile) => selectedIds.includes(tile.id) ? { ...tile, rotation: (tile.rotation + 90) % 360 } : tile)); }
+  function flipSelected() { if (selectedIds.length === 0) return; setTiles((previous) => previous.map((tile) => selectedIds.includes(tile.id) ? { ...tile, flip: !tile.flip } : tile)); }
+
+  function groupSelected() {
+    if (selectedIds.length === 0) return;
+    const selectedTiles = tiles.filter((tile) => selectedIds.includes(tile.id));
+    const firstGroup = selectedTiles[0] ? selectedTiles[0].groupId : null;
+    const completeGroupSelected = firstGroup && selectedTiles.every((tile) => tile.groupId === firstGroup);
+    setTiles((previous) => previous.map((tile) => {
+      if (!selectedIds.includes(tile.id)) return tile;
+      if (completeGroupSelected) return { ...tile, groupId: null };
+      return { ...tile, groupId: "group_" + groupCounter.current };
+    }));
+    if (!completeGroupSelected) groupCounter.current += 1;
+  }
+
+  return <main className="viewport"><Toolbar activeTool={activeTool} setActiveTool={setActiveTool} showLibrary={showLibrary} setShowLibrary={setShowLibrary} showRuler={showRuler} setShowRuler={setShowRuler} onGroup={groupSelected} onRotate={rotateSelected} onFlip={flipSelected} onPaint={paintSelected} /><LibraryPopup show={showLibrary} onApply={applyLibraryModel} /><div className="viewportBadge">{config.width * MODULE_MM} × {config.depth * MODULE_MM} × {config.height * MODULE_MM} mm</div><ThreeViewportWrapper config={config} tiles={tiles} selectedIds={selectedIds} onSelectTile={onSelectTile} clearSelection={clearSelection} showRuler={showRuler} /><div className="mouseHelp">Left drag: orbit · Wheel: zoom · Right drag: pan · Shift/Ctrl click: multi-select</div><div className="viewSwitch"><button className="active">Perspective</button><button>Orthographic</button></div></main>;
+}
+
+export default function App() {
+  const [config, setConfigState] = useState(DEFAULT_CONFIG);
+  const [activeTab, setActiveTab] = useState("print");
+  const [activeColor, setActiveColor] = useState("#3b82f6");
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [showRuler, setShowRuler] = useState(true);
+  const [tiles, setTiles] = useState(() => makeTiles(DEFAULT_CONFIG));
+
+  function updateConfig(patch) {
+    setConfigState((previousConfig) => {
+      const nextConfig = { ...previousConfig, ...patch };
+      setTiles((previousTiles) => {
+        const previousById = Object.fromEntries(previousTiles.map((tile) => [tile.id, tile]));
+        const nextTiles = makeTiles(nextConfig, previousById);
+        const validIds = new Set(nextTiles.map((tile) => tile.id));
+        setSelectedIds((previousIds) => previousIds.filter((id) => validIds.has(id)));
+        return nextTiles;
+      });
+      return nextConfig;
+    });
+  }
+
+  const printList = useMemo(() => buildPrintList(config, tiles), [config, tiles]);
+  const buildText = useMemo(() => makeBuildText(config, printList), [config, printList]);
+
+  function downloadTxt() {
+    const blob = new Blob([buildText], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "modular-diorama-build-list.txt";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function copyBuildList() {
+    try { await navigator.clipboard.writeText(buildText); }
+    catch (error) { console.warn("Clipboard copy failed", error); }
+  }
+
+  function resetConfiguration() {
+    setConfigState(DEFAULT_CONFIG);
+    setTiles(makeTiles(DEFAULT_CONFIG));
+    setSelectedIds([]);
+    setShowRuler(true);
+  }
+
+  return <div className="appShell"><style>{`
+    :root { --bg: #121316; --viewport: #18191c; --panel: #151619; --panel2: #1c1d21; --border: #2a2b30; --text: #f2f2f2; --muted: #9a9a9a; --blue: #2563eb; --blue2: #3b82f6; --measure: #60a5fa; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); }
+    button, select, input { font: inherit; }
+    button { cursor: pointer; }
+    .appShell { width: 100vw; height: 100vh; overflow: hidden; display: flex; flex-direction: column; background: var(--bg); color: var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .mainLayout { flex: 1; min-height: 0; display: flex; }
+    .topBar { height: 44px; flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border-bottom: 1px solid var(--border); background: #101114; }
+    .brandArea, .topActions { display: flex; align-items: center; gap: 8px; }
+    .appMark { width: 25px; height: 25px; border: 1px solid var(--border); border-radius: 7px; background: var(--panel2); display: grid; place-items: center; color: var(--blue2); font-size: 14px; }
+    .appTitle { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
+    .tinyTool { width: 25px; height: 25px; border: 1px solid var(--border); border-radius: 7px; background: var(--panel); color: var(--muted); }
+    .topButton { height: 28px; padding: 0 11px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel2); color: #d7d7d7; font-size: 12px; }
+    .topButton.primary { background: #1d4ed8; border-color: var(--blue); color: white; }
+    .topButton:hover, .tinyTool:hover, .panelButton:hover, .iconButton:hover { border-color: #3a3b42; color: white; }
+    .leftPanel { width: 260px; flex: 0 0 260px; min-height: 0; display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--panel); }
+    .rightPanel { width: 300px; flex: 0 0 300px; min-height: 0; display: flex; flex-direction: column; border-left: 1px solid var(--border); background: var(--panel); }
+    .panelHeader { padding: 12px; border-bottom: 1px solid var(--border); }
+    .panelTitle { font-size: 13px; font-weight: 650; }
+    .panelSub { margin-top: 3px; color: var(--muted); font-size: 11px; }
+    .tabs { display: flex; gap: 6px; margin-top: 12px; }
+    .tab { height: 27px; border: 1px solid var(--border); border-radius: 8px; padding: 0 10px; background: var(--panel2); color: var(--muted); font-size: 12px; }
+    .tab.active { background: #1d4ed8; border-color: var(--blue); color: white; }
+    .panelScroll { flex: 1; min-height: 0; overflow: auto; padding: 12px; }
+    .panelScroll::-webkit-scrollbar { width: 8px; }
+    .panelScroll::-webkit-scrollbar-track { background: var(--panel); }
+    .panelScroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+    .printGroup { border: 1px solid var(--border); border-radius: 10px; background: var(--panel2); overflow: hidden; margin-bottom: 10px; }
+    .groupHeader { height: 32px; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; border-bottom: 1px solid var(--border); font-size: 12px; }
+    .groupHeader span:last-child { color: var(--muted); font-size: 10px; }
+    .groupBody { padding: 8px; }
+    .partCard, .assetCard { border: 1px solid var(--border); border-radius: 8px; background: var(--panel); padding: 8px; margin-bottom: 8px; }
+    .partName, .assetName { font-size: 12px; }
+    .partName b { color: var(--measure); }
+    .fileName, .assetId, .emptyLine { margin-top: 5px; color: var(--muted); font-size: 10px; word-break: break-all; }
+    .tagRow { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
+    .tag { border: 1px solid var(--border); border-radius: 5px; padding: 2px 5px; color: var(--muted); font-size: 10px; line-height: 1; }
+    .tag.active { border-color: var(--blue); background: #172554; color: #93c5fd; }
+    .panelFooter { border-top: 1px solid var(--border); padding: 12px; }
+    .twoButtons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .panelButton, .iconButton { border: 1px solid var(--border); border-radius: 8px; background: var(--panel2); color: #d7d7d7; font-size: 11px; min-height: 32px; }
+    .inspectorHeader { display: flex; align-items: center; justify-content: space-between; }
+    .iconButton { width: 31px; height: 31px; font-size: 15px; }
+    .settingsScroll { display: flex; flex-direction: column; gap: 12px; }
+    .settingsBlock { border: 1px solid var(--border); border-radius: 10px; background: var(--panel2); padding: 10px; }
+    .settingsBlock.stack { display: flex; flex-direction: column; gap: 10px; }
+    .settingsTitle { color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; margin-bottom: 10px; }
+    .label { display: block; color: var(--muted); font-size: 11px; margin-bottom: 5px; }
+    .label.withTop { margin-top: 10px; }
+    select { width: 100%; height: 32px; border: 1px solid var(--border); border-radius: 8px; background: #121316; color: var(--text); padding: 0 8px; font-size: 12px; outline: none; }
+    .colorRow { display: flex; align-items: center; gap: 9px; }
+    .colorRow input { width: 46px; height: 32px; border: 1px solid var(--border); border-radius: 8px; background: transparent; }
+    .colorRow span { color: var(--muted); font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .stepperRow, .toggleRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .fieldTitle, .toggleRow span { font-size: 12px; color: var(--text); }
+    .fieldHint { margin-top: 2px; color: var(--muted); font-size: 10px; }
+    .stepper { height: 29px; display: grid; grid-template-columns: 28px 44px 28px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #121316; }
+    .stepper button { border: 0; background: transparent; color: var(--muted); }
+    .stepper button:hover { color: white; background: var(--panel2); }
+    .stepper span { display: grid; place-items: center; border-left: 1px solid var(--border); border-right: 1px solid var(--border); font-size: 12px; }
+    .toggle { width: 64px; height: 28px; border: 1px solid var(--border); border-radius: 8px; background: #121316; color: var(--muted); font-size: 12px; }
+    .toggle.on { background: #1d4ed8; border-color: var(--blue); color: white; }
+    .sizeBox { border: 1px solid var(--border); border-radius: 8px; background: #121316; padding: 8px; color: var(--muted); font-size: 11px; }
+    .sizeBox b { color: var(--measure); font-weight: 600; }
+    .viewport { position: relative; flex: 1; min-width: 0; overflow: hidden; background: radial-gradient(circle at 50% 20%, #202229 0, #18191c 45%, #121316 100%); }
+    .threeHost { position: absolute; inset: 0; }
+    .threeHost canvas { display: block; width: 100%; height: 100%; }
+    .floatingToolbar { position: absolute; z-index: 30; top: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 5px; padding: 6px; border: 1px solid var(--border); border-radius: 13px; background: rgba(18, 19, 22, 0.92); backdrop-filter: blur(12px); box-shadow: 0 18px 40px rgba(0,0,0,0.35); }
+    .toolButton { width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 9px; background: var(--panel2); color: var(--muted); display: grid; place-items: center; }
+    .toolButton.active { background: #1d4ed8; border-color: var(--blue); color: white; }
+    .miniIcon { font-size: 15px; line-height: 1; }
+    .libraryPopup { position: absolute; z-index: 29; top: 72px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; padding: 7px; border: 1px solid var(--border); border-radius: 12px; background: rgba(18,19,22,0.95); box-shadow: 0 18px 40px rgba(0,0,0,0.34); }
+    .libraryGroup { display: flex; flex-direction: column; gap: 5px; }
+    .libraryGroupTitle { color: var(--muted); font-size: 9px; font-weight: 700; line-height: 1; text-transform: uppercase; letter-spacing: 0.08em; padding-left: 3px; }
+    .libraryGroupItems { display: flex; gap: 5px; }
+    .libraryItem { width: 62px; height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel2); color: var(--muted); font-size: 9px; text-align: center; }
+    .libraryItem:hover { color: white; border-color: var(--blue); }
+    .libraryIcon { width: 18px; height: 18px; display: block; background: currentColor; -webkit-mask: var(--icon-url) center / contain no-repeat; mask: var(--icon-url) center / contain no-repeat; }
+    .viewportBadge { position: absolute; z-index: 10; right: 15px; top: 15px; border: 1px solid var(--border); border-radius: 9px; background: rgba(18,19,22,0.82); color: var(--muted); font-size: 11px; padding: 7px 10px; pointer-events: none; }
+    .mouseHelp { position: absolute; left: 14px; bottom: 14px; max-width: 390px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 12px; background: rgba(18,19,22,0.86); color: var(--muted); font-size: 11px; pointer-events: none; }
+    .viewSwitch { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; gap: 4px; padding: 4px; border: 1px solid var(--border); border-radius: 10px; background: rgba(18,19,22,0.86); pointer-events: none; }
+    .viewSwitch button { height: 26px; padding: 0 12px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); font-size: 11px; }
+    .viewSwitch button.active { background: var(--panel2); color: var(--text); }
+  `}</style><TopBar onExport={downloadTxt} /><div className="mainLayout"><LeftPanel activeTab={activeTab} setActiveTab={setActiveTab} printList={printList} onCopy={copyBuildList} onDownload={downloadTxt} /><Viewport config={config} tiles={tiles} setTiles={setTiles} selectedIds={selectedIds} setSelectedIds={setSelectedIds} activeColor={activeColor} showRuler={showRuler} setShowRuler={setShowRuler} /><RightPanel config={config} setConfig={updateConfig} activeColor={activeColor} setActiveColor={setActiveColor} selectionCount={selectedIds.length} onReset={resetConfiguration} /></div></div>;
+}
