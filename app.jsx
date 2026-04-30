@@ -126,11 +126,11 @@ function getTileTransform(tile, config) {
   const halfW = (config.width * UNIT) / 2;
   const halfD = (config.depth * UNIT) / 2;
   const offset = TILE_THICKNESS / 2;
-  if (tile.type === "floor") return { position: [(tile.x + 0.5) * UNIT - halfW, TILE_THICKNESS / 2, (tile.z + 0.5) * UNIT - halfD], rotation: [0, rotationRad, 0], size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT] };
-  if (tile.side === "back") return { position: [(tile.x + 0.5) * UNIT - halfW, (tile.h + 0.5) * UNIT, -halfD - offset], rotation: [Math.PI / 2, getWallRotationY(tile.side), rotationRad], rotationOrder: "YXZ", size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT] };
-  if (tile.side === "left") return { position: [-halfW - offset, (tile.h + 0.5) * UNIT, (tile.z + 0.5) * UNIT - halfD], rotation: [Math.PI / 2, getWallRotationY(tile.side), rotationRad], rotationOrder: "YXZ", size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT] };
-  if (tile.side === "right") return { position: [halfW + offset, (tile.h + 0.5) * UNIT, (tile.z + 0.5) * UNIT - halfD], rotation: [Math.PI / 2, getWallRotationY(tile.side), rotationRad], rotationOrder: "YXZ", size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT] };
-  return { position: [0, 0, 0], rotation: [0, 0, 0], size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT] };
+  if (tile.type === "floor") return { position: [(tile.x + 0.5) * UNIT - halfW, TILE_THICKNESS / 2, (tile.z + 0.5) * UNIT - halfD], rotation: [0, 0, 0], contentRotation: [0, rotationRad, 0], size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT] };
+  if (tile.side === "back") return { position: [(tile.x + 0.5) * UNIT - halfW, (tile.h + 0.5) * UNIT, -halfD - offset], rotation: [Math.PI / 2, getWallRotationY(tile.side), 0], rotationOrder: "YXZ", contentRotation: [0, rotationRad, 0], size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT] };
+  if (tile.side === "left") return { position: [-halfW - offset, (tile.h + 0.5) * UNIT, (tile.z + 0.5) * UNIT - halfD], rotation: [Math.PI / 2, getWallRotationY(tile.side), 0], rotationOrder: "YXZ", contentRotation: [0, rotationRad, 0], size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT] };
+  if (tile.side === "right") return { position: [halfW + offset, (tile.h + 0.5) * UNIT, (tile.z + 0.5) * UNIT - halfD], rotation: [Math.PI / 2, getWallRotationY(tile.side), 0], rotationOrder: "YXZ", contentRotation: [0, rotationRad, 0], size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT] };
+  return { position: [0, 0, 0], rotation: [0, 0, 0], contentRotation: [0, 0, 0], size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT] };
 }
 
 function countByModel(tiles) {
@@ -210,6 +210,11 @@ function makeMediumGrayMaterial(material, color = MODEL_BASE_COLOR) {
 function setObjectTransform(object, transform) {
   object.position.set(transform.position[0], transform.position[1], transform.position[2]);
   object.rotation.set(transform.rotation[0], transform.rotation[1], transform.rotation[2], transform.rotationOrder || "XYZ");
+}
+
+function setContentRotation(object, transform) {
+  const rotation = transform.contentRotation || [0, 0, 0];
+  object.rotation.set(rotation[0], rotation[1], rotation[2]);
 }
 
 function makeSelectionEdges() {
@@ -392,27 +397,30 @@ function ThreeViewport({ config, tiles, selectedIds, onSelectTile, clearSelectio
         const paintColor = tile.painted ? tile.color : getStoredPaintColor(tile);
         const displayColor = paintColor || MODEL_BASE_COLOR;
         const group = new THREE.Group();
+        const content = new THREE.Group();
         setObjectTransform(group, transform);
-        if (tile.flip) group.scale.x = -1;
+        setContentRotation(content, transform);
+        if (tile.flip) content.scale.x = -1;
         const model = makeTileModel(tile.modelId, displayColor);
-        if (model) group.add(model);
+        if (model) content.add(model);
         else {
           const material = new THREE.MeshStandardMaterial({ color: displayColor, roughness: 0.78, metalness: 0.08, emissive: new THREE.Color("#000000"), emissiveIntensity: 0 });
           const mesh = new THREE.Mesh(new THREE.BoxGeometry(VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT), material);
           mesh.castShadow = false;
           mesh.receiveShadow = false;
           mesh.raycast = function () {};
-          group.add(mesh);
+          content.add(mesh);
           const variantGroup = makeVariantGroup(asset ? asset.variant : "base_a");
           variantGroup.traverse((child) => { child.raycast = function () {}; });
-          group.add(variantGroup);
+          content.add(variantGroup);
         }
         if (selected) {
-          group.add(makeSelectionEdges());
+          content.add(makeSelectionEdges());
         }
         const hitbox = new THREE.Mesh(hitGeometry.clone(), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
         hitbox.userData.tileId = tile.id;
-        group.add(hitbox);
+        content.add(hitbox);
+        group.add(content);
         hitboxes.push(hitbox);
         tileRoot.add(group);
       });
