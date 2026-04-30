@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { FlipHorizontal, Group, Library, MousePointer2, PaintBucket, RotateCw, Ruler } from "lucide-react";
 
 const MODULE_MM = 50;
 const UNIT = 0.5;
 const VISUAL_TILE_UNIT = 0.49;
 const TILE_THICKNESS = 0.012;
-const MODEL_BASE_COLOR = "#808080";
+const MODEL_BASE_COLOR = "#cccccc";
 
 const CATALOG = [
   { id: "scifi_floor_base_a_50_v01", name: "Sci-Fi Floor Tile", category: "floor", theme: "scifi", variant: "base_a", width_mm: 50, depth_mm: 50, height_mm: 6, file_stl: "scifi_floor_base_a_50_v01.stl", file_3mf: "scifi_floor_base_a_50_v01.3mf", print_orientation: "Face-down", supports: false, bed_texture_finish: true, notes: "Default floor module. Designed to use build plate texture as final finish." },
@@ -29,7 +30,15 @@ const CATALOG = [
 
 const ASSET_BY_ID = Object.fromEntries(CATALOG.map((asset) => [asset.id, asset]));
 const DEFAULT_CONFIG = { theme: "Sci-Fi", scale: "1:12", width: 3, depth: 3, height: 3, backWall: true, leftWall: false, rightWall: false };
-const DEFAULT_MODEL_BY_TYPE = { floor: "scifi_floor_base_a_50_v01", wall: "scifi_wall_base_a_50_v01" };
+const DEFAULT_MODEL_BY_TYPE = { floor: "scifi_floor_base_a_50_v01", wall: "scifi_floor_base_a_50_v01" };
+const GLTF_MODEL_BY_ID = {
+  scifi_floor_base_a_50_v01: "/models/SCIFI_FLOOR_1x1_A.gltf",
+  scifi_floor_base_b_50_v01: "/models/SCIFI_FLOOR_1x1_B.gltf",
+  scifi_floor_base_c_50_v01: "/models/SCIFI_FLOOR_1x1_C.gltf",
+  scifi_wall_base_a_50_v01: "/models/SCIFI_WALL_1x1_A.gltf",
+  scifi_wall_base_b_50_v01: "/models/SCIFI_WALL_1x1_B.gltf",
+  scifi_wall_base_c_50_v01: "/models/SCIFI_WALL_1x1_C.gltf"
+};
 const LIBRARY_ITEMS = [
   { key: "plain", label: "Plain Tile", family: "floor", iconSrc: "/icons/SCIFI_FLOOR_1x1_A.svg" },
   { key: "corner", label: "Corner Slots", family: "floor", iconSrc: "/icons/SCIFI_FLOOR_1x1_B.svg" },
@@ -39,33 +48,33 @@ const LIBRARY_ITEMS = [
   { key: "vent", label: "Vent", family: "wall", iconSrc: "/icons/SCIFI_WALL_1x1_C.svg" }
 ];
 const TOOLBAR = [
-  { key: "select", label: "Select", icon: "↖" },
-  { key: "library", label: "Library", icon: "▧" },
-  { key: "group", label: "Group", icon: "□" },
-  { key: "rotate", label: "Rotate", icon: "⟳" },
-  { key: "flip", label: "Flip", icon: "⇄" },
-  { key: "paint", label: "Paint", icon: "◉" },
-  { key: "ruler", label: "Ruler", icon: "⌁" }
+  { key: "select", label: "Select", Icon: MousePointer2 },
+  { key: "library", label: "Library", Icon: Library },
+  { key: "group", label: "Group", Icon: Group },
+  { key: "rotate", label: "Rotate", Icon: RotateCw },
+  { key: "flip", label: "Flip", Icon: FlipHorizontal },
+  { key: "paint", label: "Paint", Icon: PaintBucket },
+  { key: "ruler", label: "Ruler", Icon: Ruler }
 ];
 
 function cx() { return Array.from(arguments).filter(Boolean).join(" "); }
 function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
 function getTileType(tileId) { if (tileId.startsWith("floor_")) return "floor"; if (tileId.startsWith("wall_")) return "wall"; return "unknown"; }
 function getWallRotationY(side) { if (side === "left") return Math.PI / 2; if (side === "right") return -Math.PI / 2; return 0; }
+function getStoredPaintColor(previous) {
+  const legacyDefaultColors = new Set(["#30333a", "#343741", "#808080", "#cccccc"]);
+  if (!previous || !previous.color) return null;
+  if (previous.painted) return previous.color;
+  return legacyDefaultColors.has(String(previous.color).toLowerCase()) ? null : previous.color;
+}
 
-function getModelForLibraryAction(actionKey, tileType) {
-  if (tileType === "floor") {
-    if (actionKey === "plain") return "scifi_floor_base_a_50_v01";
-    if (actionKey === "corner") return "scifi_floor_base_b_50_v01";
-    if (actionKey === "modular") return "scifi_floor_base_c_50_v01";
-    return null;
-  }
-  if (tileType === "wall") {
-    if (actionKey === "plain") return "scifi_wall_base_a_50_v01";
-    if (actionKey === "corner") return "scifi_wall_base_b_50_v01";
-    if (actionKey === "modular") return "scifi_wall_base_c_50_v01";
-    return null;
-  }
+function getModelForLibraryAction(actionKey) {
+  if (actionKey === "plain") return "scifi_floor_base_a_50_v01";
+  if (actionKey === "corner") return "scifi_floor_base_b_50_v01";
+  if (actionKey === "louver") return "scifi_floor_base_c_50_v01";
+  if (actionKey === "modular") return "scifi_wall_base_a_50_v01";
+  if (actionKey === "hatch") return "scifi_wall_base_b_50_v01";
+  if (actionKey === "vent") return "scifi_wall_base_c_50_v01";
   return null;
 }
 
@@ -75,7 +84,8 @@ function makeTiles(config, previousById = {}) {
     for (let z = 0; z < config.depth; z += 1) {
       const id = `floor_${x}_${z}`;
       const previous = previousById[id] || {};
-      tiles.push({ id, type: "floor", side: "floor", x, z, h: 0, modelId: previous.modelId || DEFAULT_MODEL_BY_TYPE.floor, color: previous.color || "#30333a", rotation: previous.rotation || 0, flip: previous.flip || false, groupId: previous.groupId || null });
+      const color = getStoredPaintColor(previous);
+      tiles.push({ id, type: "floor", side: "floor", x, z, h: 0, modelId: previous.modelId || DEFAULT_MODEL_BY_TYPE.floor, color, painted: Boolean(color), rotation: previous.rotation || 0, flip: previous.flip || false, groupId: previous.groupId || null });
     }
   }
   if (config.backWall) {
@@ -83,7 +93,8 @@ function makeTiles(config, previousById = {}) {
       for (let h = 0; h < config.height; h += 1) {
         const id = `wall_back_${x}_h${h}`;
         const previous = previousById[id] || {};
-        tiles.push({ id, type: "wall", side: "back", x, z: 0, h, modelId: previous.modelId || DEFAULT_MODEL_BY_TYPE.wall, color: previous.color || "#343741", rotation: previous.rotation || 0, flip: previous.flip || false, groupId: previous.groupId || null });
+        const color = getStoredPaintColor(previous);
+        tiles.push({ id, type: "wall", side: "back", x, z: 0, h, modelId: previous.modelId || DEFAULT_MODEL_BY_TYPE.wall, color, painted: Boolean(color), rotation: previous.rotation || 0, flip: previous.flip || false, groupId: previous.groupId || null });
       }
     }
   }
@@ -92,7 +103,8 @@ function makeTiles(config, previousById = {}) {
       for (let h = 0; h < config.height; h += 1) {
         const id = `wall_left_${z}_h${h}`;
         const previous = previousById[id] || {};
-        tiles.push({ id, type: "wall", side: "left", x: 0, z, h, modelId: previous.modelId || DEFAULT_MODEL_BY_TYPE.wall, color: previous.color || "#343741", rotation: previous.rotation || 0, flip: previous.flip || false, groupId: previous.groupId || null });
+        const color = getStoredPaintColor(previous);
+        tiles.push({ id, type: "wall", side: "left", x: 0, z, h, modelId: previous.modelId || DEFAULT_MODEL_BY_TYPE.wall, color, painted: Boolean(color), rotation: previous.rotation || 0, flip: previous.flip || false, groupId: previous.groupId || null });
       }
     }
   }
@@ -101,7 +113,8 @@ function makeTiles(config, previousById = {}) {
       for (let h = 0; h < config.height; h += 1) {
         const id = `wall_right_${z}_h${h}`;
         const previous = previousById[id] || {};
-        tiles.push({ id, type: "wall", side: "right", x: config.width - 1, z, h, modelId: previous.modelId || DEFAULT_MODEL_BY_TYPE.wall, color: previous.color || "#343741", rotation: previous.rotation || 0, flip: previous.flip || false, groupId: previous.groupId || null });
+        const color = getStoredPaintColor(previous);
+        tiles.push({ id, type: "wall", side: "right", x: config.width - 1, z, h, modelId: previous.modelId || DEFAULT_MODEL_BY_TYPE.wall, color, painted: Boolean(color), rotation: previous.rotation || 0, flip: previous.flip || false, groupId: previous.groupId || null });
       }
     }
   }
@@ -114,9 +127,9 @@ function getTileTransform(tile, config) {
   const halfD = (config.depth * UNIT) / 2;
   const offset = TILE_THICKNESS / 2;
   if (tile.type === "floor") return { position: [(tile.x + 0.5) * UNIT - halfW, TILE_THICKNESS / 2, (tile.z + 0.5) * UNIT - halfD], rotation: [0, rotationRad, 0], size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT] };
-  if (tile.side === "back") return { position: [(tile.x + 0.5) * UNIT - halfW, (tile.h + 0.5) * UNIT, -halfD - offset], rotation: [-Math.PI / 2, getWallRotationY(tile.side), rotationRad], rotationOrder: "YXZ", size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT] };
-  if (tile.side === "left") return { position: [-halfW - offset, (tile.h + 0.5) * UNIT, (tile.z + 0.5) * UNIT - halfD], rotation: [-Math.PI / 2, getWallRotationY(tile.side), rotationRad], rotationOrder: "YXZ", size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT] };
-  if (tile.side === "right") return { position: [halfW + offset, (tile.h + 0.5) * UNIT, (tile.z + 0.5) * UNIT - halfD], rotation: [-Math.PI / 2, getWallRotationY(tile.side), rotationRad], rotationOrder: "YXZ", size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT] };
+  if (tile.side === "back") return { position: [(tile.x + 0.5) * UNIT - halfW, (tile.h + 0.5) * UNIT, -halfD - offset], rotation: [Math.PI / 2, getWallRotationY(tile.side), rotationRad], rotationOrder: "YXZ", size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT] };
+  if (tile.side === "left") return { position: [-halfW - offset, (tile.h + 0.5) * UNIT, (tile.z + 0.5) * UNIT - halfD], rotation: [Math.PI / 2, getWallRotationY(tile.side), rotationRad], rotationOrder: "YXZ", size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT] };
+  if (tile.side === "right") return { position: [halfW + offset, (tile.h + 0.5) * UNIT, (tile.z + 0.5) * UNIT - halfD], rotation: [Math.PI / 2, getWallRotationY(tile.side), rotationRad], rotationOrder: "YXZ", size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT] };
   return { position: [0, 0, 0], rotation: [0, 0, 0], size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT] };
 }
 
@@ -179,10 +192,14 @@ function createTextSprite(text, color) {
   return sprite;
 }
 
-function makeMediumGrayMaterial(material) {
-  if (Array.isArray(material)) return material.map((entry) => makeMediumGrayMaterial(entry));
-  const next = material && material.clone ? material.clone() : new THREE.MeshStandardMaterial({ roughness: 0.78, metalness: 0.08 });
-  if (next.color) next.color.set(MODEL_BASE_COLOR);
+function makeMediumGrayMaterial(material, color = MODEL_BASE_COLOR) {
+  if (Array.isArray(material)) return material.map((entry) => makeMediumGrayMaterial(entry, color));
+  const next = new THREE.MeshStandardMaterial({
+    color,
+    roughness: material && typeof material.roughness === "number" ? material.roughness : 0.78,
+    metalness: material && typeof material.metalness === "number" ? material.metalness : 0.08,
+    side: THREE.DoubleSide
+  });
   if (next.emissive) {
     next.emissive.set("#000000");
     next.emissiveIntensity = 0;
@@ -258,7 +275,7 @@ function ThreeViewport({ config, tiles, selectedIds, onSelectTile, clearSelectio
     const rulerRoot = new THREE.Group();
     const gridRoot = new THREE.Group();
     scene.add(gridRoot, tileRoot, rulerRoot);
-    let floorBaseModel = null;
+    const gltfModels = {};
 
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
@@ -348,13 +365,15 @@ function ThreeViewport({ config, tiles, selectedIds, onSelectTile, clearSelectio
       }
     }
 
-    function makeFloorBaseModel(selected) {
-      if (!floorBaseModel) return null;
-      const model = floorBaseModel.clone(true);
+    function makeTileModel(modelId, color) {
+      const source = gltfModels[modelId];
+      if (!source) return null;
+      const model = source.clone(true);
       model.traverse((child) => {
         if (!child.isMesh) return;
         child.geometry = child.geometry.clone();
-        child.material = makeMediumGrayMaterial(child.material);
+        if (!child.geometry.attributes.normal) child.geometry.computeVertexNormals();
+        child.material = makeMediumGrayMaterial(child.material, color);
         child.castShadow = false;
         child.receiveShadow = false;
         child.raycast = function () {};
@@ -370,13 +389,15 @@ function ThreeViewport({ config, tiles, selectedIds, onSelectTile, clearSelectio
         const transform = getTileTransform(tile, currentConfig);
         const asset = ASSET_BY_ID[tile.modelId];
         const selected = currentSelected.includes(tile.id);
+        const paintColor = tile.painted ? tile.color : getStoredPaintColor(tile);
+        const displayColor = paintColor || MODEL_BASE_COLOR;
         const group = new THREE.Group();
         setObjectTransform(group, transform);
         if (tile.flip) group.scale.x = -1;
-        const model = makeFloorBaseModel(selected);
+        const model = makeTileModel(tile.modelId, displayColor);
         if (model) group.add(model);
         else {
-          const material = new THREE.MeshStandardMaterial({ color: MODEL_BASE_COLOR, roughness: 0.78, metalness: 0.08, emissive: new THREE.Color("#000000"), emissiveIntensity: 0 });
+          const material = new THREE.MeshStandardMaterial({ color: displayColor, roughness: 0.78, metalness: 0.08, emissive: new THREE.Color("#000000"), emissiveIntensity: 0 });
           const mesh = new THREE.Mesh(new THREE.BoxGeometry(VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT), material);
           mesh.castShadow = false;
           mesh.receiveShadow = false;
@@ -404,16 +425,20 @@ function ThreeViewport({ config, tiles, selectedIds, onSelectTile, clearSelectio
     }
 
     const gltfLoader = new GLTFLoader();
-    gltfLoader.load("/models/floor%20Base%20A.gltf", (gltf) => {
+    Promise.all(Object.entries(GLTF_MODEL_BY_ID).map(async ([modelId, url]) => {
+      try {
+        const gltf = await gltfLoader.loadAsync(url);
+        gltfModels[modelId] = gltf.scene;
+        gltfModels[modelId].traverse((child) => {
+          if (!child.isMesh) return;
+          child.raycast = function () {};
+        });
+      } catch (error) {
+        console.warn("Could not load model", modelId, url, error);
+      }
+    })).then(() => {
       if (disposed) return;
-      floorBaseModel = gltf.scene;
-      floorBaseModel.traverse((child) => {
-        if (!child.isMesh) return;
-        child.raycast = function () {};
-      });
       rebuild();
-    }, undefined, (error) => {
-      console.warn("Could not load floor Base A.gltf", error);
     });
 
     function setPointer(event) {
@@ -478,7 +503,7 @@ function ThreeViewport({ config, tiles, selectedIds, onSelectTile, clearSelectio
     buildGrid();
     resize();
     updateCamera();
-    rebuild();
+    buildRulers(dataRef.current.config, dataRef.current.showRuler);
 
     let frame = 0;
     function animate() {
@@ -559,14 +584,14 @@ function runLogicTests() {
   const backTransform = getTileTransform(backWalls[0], config);
   console.assert(floors.length === 9, "Expected 9 floor tiles in the default 3x3 scene");
   console.assert(backWalls.length === 9, "Expected 9 back wall tiles in the default scene");
-  console.assert(getModelForLibraryAction("corner", "floor") === "scifi_floor_base_b_50_v01", "Corner Slots must map floor tiles to Floor Base B");
-  console.assert(getModelForLibraryAction("corner", "wall") === "scifi_wall_base_b_50_v01", "Corner Slots must map wall tiles to Wall Base B");
-  console.assert(getModelForLibraryAction("modular", "floor") === "scifi_floor_base_c_50_v01", "Modular 2x2 must map floor tiles to Floor Base C");
-  console.assert(getModelForLibraryAction("modular", "wall") === "scifi_wall_base_c_50_v01", "Modular 2x2 must map wall tiles to Wall Base C");
-  console.assert(getModelForLibraryAction("louver", "floor") === null, "Louver must not replace floor tiles");
+  console.assert(getModelForLibraryAction("corner") === "scifi_floor_base_b_50_v01", "Corner Slots must map to Floor Base B");
+  console.assert(getModelForLibraryAction("louver") === "scifi_floor_base_c_50_v01", "Louver must map to Floor Base C");
+  console.assert(getModelForLibraryAction("modular") === "scifi_wall_base_a_50_v01", "Wall Light must map to Wall Base A");
+  console.assert(getModelForLibraryAction("hatch") === "scifi_wall_base_b_50_v01", "Hatch must map to Wall Base B");
+  console.assert(getModelForLibraryAction("vent") === "scifi_wall_base_c_50_v01", "Vent must map to Wall Base C");
   console.assert(floorConnector && floorConnector.quantity === 12, "Expected 12 floor connectors for a 3x3 floor grid");
   console.assert(wallConnector && wallConnector.quantity === 9, "Expected 9 wall connectors for a 3x3 back wall");
-  console.assert(backTransform.rotation[0] === -Math.PI / 2, "Back wall tile must be vertical");
+  console.assert(backTransform.rotation[0] === Math.PI / 2, "Back wall tile must be vertical and face inward");
   console.assert(backTransform.position[1] === 0.25, "First back wall tile must start at half-module height");
 }
 
@@ -575,7 +600,7 @@ if (typeof window !== "undefined" && !window.__MODULAR_DIORAMA_THREE_VANILLA_TES
   runLogicTests();
 }
 
-function MiniIcon({ icon }) { return <span className="miniIcon">{icon}</span>; }
+function MiniIcon({ Icon }) { return <Icon className="miniIcon" aria-hidden="true" strokeWidth={2} />; }
 
 function TopBar({ onExport }) {
   return <header className="topBar"><div className="brandArea"><div className="appMark">▧</div><div className="appTitle">Modular Diorama Configurator</div><button className="tinyTool" title="Scene">▦</button><button className="tinyTool" title="Assets">▤</button><button className="tinyTool" title="Grid">⌗</button></div><div className="topActions"><button className="topButton">Share</button><button className="topButton primary" onClick={onExport}>Export</button></div></header>;
@@ -610,7 +635,7 @@ function Toolbar({ activeTool, setActiveTool, showLibrary, setShowLibrary, showR
     if (toolKey === "ruler") { setShowRuler((value) => !value); return; }
     setActiveTool(toolKey);
   }
-  return <div className="floatingToolbar">{TOOLBAR.map((tool) => <button key={tool.key} title={tool.label} className={cx("toolButton", activeTool === tool.key ? "active" : "", tool.key === "library" && showLibrary ? "active" : "", tool.key === "ruler" && showRuler ? "active" : "")} onClick={() => runTool(tool.key)}><MiniIcon icon={tool.icon} /></button>)}</div>;
+  return <div className="floatingToolbar">{TOOLBAR.map((tool) => <button key={tool.key} title={tool.label} className={cx("toolButton", activeTool === tool.key ? "active" : "", tool.key === "library" && showLibrary ? "active" : "", tool.key === "ruler" && showRuler ? "active" : "")} onClick={() => runTool(tool.key)}><MiniIcon Icon={tool.Icon} /></button>)}</div>;
 }
 
 function LibraryPopup({ show, onApply }) {
@@ -641,13 +666,13 @@ function Viewport({ config, tiles, setTiles, selectedIds, setSelectedIds, active
     if (selectedIds.length === 0) return;
     setTiles((previous) => previous.map((tile) => {
       if (!selectedIds.includes(tile.id)) return tile;
-      const modelId = getModelForLibraryAction(actionKey, getTileType(tile.id));
+      const modelId = getModelForLibraryAction(actionKey);
       if (!modelId) { console.warn("No prototype model assigned for", actionKey, "on", tile.type, ". Tile preserved:", tile.id); return tile; }
       return { ...tile, modelId };
     }));
   }
 
-  function paintSelected() { if (selectedIds.length === 0) return; setTiles((previous) => previous.map((tile) => selectedIds.includes(tile.id) ? { ...tile, color: activeColor } : tile)); }
+  function paintSelected() { if (selectedIds.length === 0) return; setTiles((previous) => previous.map((tile) => selectedIds.includes(tile.id) ? { ...tile, color: activeColor, painted: true } : tile)); }
   function rotateSelected() { if (selectedIds.length === 0) return; setTiles((previous) => previous.map((tile) => selectedIds.includes(tile.id) ? { ...tile, rotation: (tile.rotation + 90) % 360 } : tile)); }
   function flipSelected() { if (selectedIds.length === 0) return; setTiles((previous) => previous.map((tile) => selectedIds.includes(tile.id) ? { ...tile, flip: !tile.flip } : tile)); }
 
@@ -787,12 +812,12 @@ export default function App() {
     .floatingToolbar { position: absolute; z-index: 30; top: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 5px; padding: 6px; border: 1px solid var(--border); border-radius: 13px; background: rgba(18, 19, 22, 0.92); backdrop-filter: blur(12px); box-shadow: 0 18px 40px rgba(0,0,0,0.35); }
     .toolButton { width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 9px; background: var(--panel2); color: var(--muted); display: grid; place-items: center; }
     .toolButton.active { background: #1d4ed8; border-color: var(--blue); color: white; }
-    .miniIcon { font-size: 15px; line-height: 1; }
+    .miniIcon { width: 16px; height: 16px; }
     .libraryPopup { position: absolute; z-index: 29; top: 72px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; padding: 7px; border: 1px solid var(--border); border-radius: 12px; background: rgba(18,19,22,0.95); box-shadow: 0 18px 40px rgba(0,0,0,0.34); }
     .libraryGroup { display: flex; flex-direction: column; gap: 5px; }
     .libraryGroupTitle { color: var(--muted); font-size: 9px; font-weight: 700; line-height: 1; text-transform: uppercase; letter-spacing: 0.08em; padding-left: 3px; }
     .libraryGroupItems { display: flex; gap: 5px; }
-    .libraryItem { width: 62px; height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel2); color: var(--muted); font-size: 9px; text-align: center; }
+    .libraryItem { width: 76px; height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel2); color: var(--muted); font-size: 9px; text-align: center; white-space: nowrap; }
     .libraryItem:hover { color: white; border-color: var(--blue); }
     .libraryIcon { width: 18px; height: 18px; display: block; background: currentColor; -webkit-mask: var(--icon-url) center / contain no-repeat; mask: var(--icon-url) center / contain no-repeat; }
     .viewportBadge { position: absolute; z-index: 10; right: 15px; top: 15px; border: 1px solid var(--border); border-radius: 9px; background: rgba(18,19,22,0.82); color: var(--muted); font-size: 11px; padding: 7px 10px; pointer-events: none; }
