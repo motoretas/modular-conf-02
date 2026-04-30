@@ -50,7 +50,7 @@ const LIBRARY_ITEMS = [
 const TOOLBAR = [
   { key: "select", label: "Select", Icon: MousePointer2 },
   { key: "library", label: "Library", Icon: Library },
-  { key: "group", label: "Group", Icon: Group },
+  { key: "group", label: "Group / Ungroup", Icon: Group },
   { key: "rotate", label: "Rotate", Icon: RotateCw },
   { key: "flip", label: "Flip", Icon: FlipHorizontal },
   { key: "paint", label: "Paint", Icon: PaintBucket },
@@ -636,7 +636,7 @@ function RightPanel({ config, setConfig, activeColor, setActiveColor, selectionC
 function Toolbar({ activeTool, setActiveTool, showLibrary, setShowLibrary, showRuler, setShowRuler, onGroup, onRotate, onFlip, onPaint }) {
   function runTool(toolKey) {
     if (toolKey === "library") { setShowLibrary((value) => !value); return; }
-    if (toolKey === "group") { setActiveTool("group"); onGroup(); return; }
+    if (toolKey === "group") { onGroup(); setActiveTool("select"); return; }
     if (toolKey === "rotate") { setActiveTool("rotate"); onRotate(); return; }
     if (toolKey === "flip") { setActiveTool("flip"); onFlip(); return; }
     if (toolKey === "paint") { setActiveTool("paint"); onPaint(); return; }
@@ -662,9 +662,12 @@ function Viewport({ config, tiles, setTiles, selectedIds, setSelectedIds, active
 
   function onSelectTile(tileId, additive) {
     setSelectedIds((previous) => {
-      if (!additive) return [tileId];
-      if (previous.includes(tileId)) return previous.filter((id) => id !== tileId);
-      return previous.concat(tileId);
+      const tile = tiles.find((entry) => entry.id === tileId);
+      const groupIds = tile && tile.groupId ? tiles.filter((entry) => entry.groupId === tile.groupId).map((entry) => entry.id) : [tileId];
+      if (!additive) return groupIds;
+      const fullGroupSelected = groupIds.every((id) => previous.includes(id));
+      if (fullGroupSelected) return previous.filter((id) => !groupIds.includes(id));
+      return Array.from(new Set(previous.concat(groupIds)));
     });
   }
 
@@ -687,14 +690,16 @@ function Viewport({ config, tiles, setTiles, selectedIds, setSelectedIds, active
   function groupSelected() {
     if (selectedIds.length === 0) return;
     const selectedTiles = tiles.filter((tile) => selectedIds.includes(tile.id));
-    const firstGroup = selectedTiles[0] ? selectedTiles[0].groupId : null;
-    const completeGroupSelected = firstGroup && selectedTiles.every((tile) => tile.groupId === firstGroup);
+    const selectedGroupIds = Array.from(new Set(selectedTiles.map((tile) => tile.groupId).filter(Boolean)));
+    const singleSelectedGroup = selectedGroupIds.length === 1 && selectedTiles.every((tile) => tile.groupId === selectedGroupIds[0]);
+    const nextGroupId = singleSelectedGroup ? null : "group_" + groupCounter.current;
     setTiles((previous) => previous.map((tile) => {
-      if (!selectedIds.includes(tile.id)) return tile;
-      if (completeGroupSelected) return { ...tile, groupId: null };
-      return { ...tile, groupId: "group_" + groupCounter.current };
+      if (singleSelectedGroup && tile.groupId === selectedGroupIds[0]) return { ...tile, groupId: null };
+      if (!singleSelectedGroup && selectedIds.includes(tile.id)) return { ...tile, groupId: nextGroupId };
+      return tile;
     }));
-    if (!completeGroupSelected) groupCounter.current += 1;
+    if (!singleSelectedGroup) groupCounter.current += 1;
+    setActiveTool("select");
   }
 
   return <main className="viewport"><Toolbar activeTool={activeTool} setActiveTool={setActiveTool} showLibrary={showLibrary} setShowLibrary={setShowLibrary} showRuler={showRuler} setShowRuler={setShowRuler} onGroup={groupSelected} onRotate={rotateSelected} onFlip={flipSelected} onPaint={paintSelected} /><LibraryPopup show={showLibrary} onApply={applyLibraryModel} /><div className="viewportBadge">{config.width * MODULE_MM} × {config.depth * MODULE_MM} × {config.height * MODULE_MM} mm</div><ThreeViewportWrapper config={config} tiles={tiles} selectedIds={selectedIds} onSelectTile={onSelectTile} clearSelection={clearSelection} showRuler={showRuler} /><div className="mouseHelp">Left drag: orbit · Wheel: zoom · Right drag: pan · Shift/Ctrl click: multi-select</div><div className="viewSwitch"><button className="active">Perspective</button><button>Orthographic</button></div></main>;
