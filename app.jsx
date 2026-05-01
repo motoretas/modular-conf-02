@@ -45,7 +45,10 @@ const LIBRARY_ITEMS = [
   { key: "louver", label: "Louver", family: "floor", iconSrc: "/icons/SCIFI_FLOOR_1x1_C.svg" },
   { key: "modular", label: "Wall Light", family: "wall", iconSrc: "/icons/SCIFI_WALL_1x1_A.svg" },
   { key: "hatch", label: "Hatch", family: "wall", iconSrc: "/icons/SCIFI_WALL_1x1_B.svg" },
-  { key: "vent", label: "Vent", family: "wall", iconSrc: "/icons/SCIFI_WALL_1x1_C.svg" }
+  { key: "vent", label: "Vent", family: "wall", iconSrc: "/icons/SCIFI_WALL_1x1_C.svg" },
+  { key: "panel_light", label: "Panel Light", family: "wall", iconSrc: "/icons/SCIFI_WALL_1x3_A.svg" },
+  { key: "panel_hatch", label: "Panel Hatch", family: "wall", iconSrc: "/icons/SCIFI_WALL_1x3_B.svg" },
+  { key: "panel_vent", label: "Panel Vent", family: "wall", iconSrc: "/icons/SCIFI_WALL_1x3_A.svg" }
 ];
 const TOOLBAR = [
   { key: "select", label: "Select", Icon: MousePointer2 },
@@ -75,6 +78,9 @@ function getModelForLibraryAction(actionKey) {
   if (actionKey === "modular") return "scifi_wall_base_a_50_v01";
   if (actionKey === "hatch") return "scifi_wall_base_b_50_v01";
   if (actionKey === "vent") return "scifi_wall_base_c_50_v01";
+  if (actionKey === "panel_light") return "scifi_wall_base_a_50_v01";
+  if (actionKey === "panel_hatch") return "scifi_wall_base_b_50_v01";
+  if (actionKey === "panel_vent") return "scifi_wall_base_c_50_v01";
   return null;
 }
 
@@ -597,6 +603,9 @@ function runLogicTests() {
   console.assert(getModelForLibraryAction("modular") === "scifi_wall_base_a_50_v01", "Wall Light must map to Wall Base A");
   console.assert(getModelForLibraryAction("hatch") === "scifi_wall_base_b_50_v01", "Hatch must map to Wall Base B");
   console.assert(getModelForLibraryAction("vent") === "scifi_wall_base_c_50_v01", "Vent must map to Wall Base C");
+  console.assert(getModelForLibraryAction("panel_light") === "scifi_wall_base_a_50_v01", "Panel Light must map to Wall Base A until a 1x3 model is available");
+  console.assert(getModelForLibraryAction("panel_hatch") === "scifi_wall_base_b_50_v01", "Panel Hatch must map to Wall Base B until a 1x3 model is available");
+  console.assert(getModelForLibraryAction("panel_vent") === "scifi_wall_base_c_50_v01", "Panel Vent must map to Wall Base C until a 1x3 model is available");
   console.assert(floorConnector && floorConnector.quantity === 12, "Expected 12 floor connectors for a 3x3 floor grid");
   console.assert(wallConnector && wallConnector.quantity === 9, "Expected 9 wall connectors for a 3x3 back wall");
   console.assert(backTransform.rotation[0] === Math.PI / 2, "Back wall tile must be vertical and face inward");
@@ -652,7 +661,7 @@ function LibraryPopup({ show, onApply }) {
     { key: "floor", label: "Floor", items: LIBRARY_ITEMS.filter((item) => item.family === "floor") },
     { key: "wall", label: "Wall", items: LIBRARY_ITEMS.filter((item) => item.family === "wall") }
   ];
-  return <div className="libraryPopup">{groups.map((group) => <div className="libraryGroup" key={group.key}><div className="libraryGroupTitle">{group.label}</div><div className="libraryGroupItems">{group.items.map((item) => <button className="libraryItem" key={item.key} onClick={() => onApply(item.key)} title={item.label}><span className="libraryIcon" style={{ "--icon-url": `url("${item.iconSrc}")` }} /><span>{item.label}</span></button>)}</div></div>)}</div>;
+  return <div className="libraryPopup">{groups.map((group) => <div className="libraryGroup" key={group.key}><div className="libraryGroupTitle">{group.label}</div><div className={cx("libraryGroupItems", group.key === "wall" ? "wallItems" : "")}>{group.items.map((item) => <button className="libraryItem" key={item.key} onClick={() => onApply(item.key)} title={item.label}><span className="libraryIcon" style={{ "--icon-url": `url("${item.iconSrc}")` }} /><span>{item.label}</span></button>)}</div></div>)}</div>;
 }
 
 function Viewport({ config, tiles, setTiles, selectedIds, setSelectedIds, activeColor, showRuler, setShowRuler }) {
@@ -830,6 +839,7 @@ export default function App() {
     .libraryGroup { display: flex; flex-direction: column; gap: 5px; }
     .libraryGroupTitle { color: var(--muted); font-size: 9px; font-weight: 700; line-height: 1; text-transform: uppercase; letter-spacing: 0.08em; padding-left: 3px; }
     .libraryGroupItems { display: flex; gap: 5px; }
+    .libraryGroupItems.wallItems { display: grid; grid-template-columns: repeat(3, 76px); }
     .libraryItem { width: 76px; height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel2); color: var(--muted); font-size: 9px; text-align: center; white-space: nowrap; }
     .libraryItem:hover { color: white; border-color: var(--blue); }
     .libraryIcon { width: 18px; height: 18px; display: block; background: currentColor; -webkit-mask: var(--icon-url) center / contain no-repeat; mask: var(--icon-url) center / contain no-repeat; }
