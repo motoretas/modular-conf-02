@@ -921,11 +921,12 @@ export default function App() {
     button, select, input { font: inherit; }
     button { cursor: pointer; }
     .appShell { width: 100vw; height: 100vh; overflow: hidden; display: flex; flex-direction: column; background: var(--bg); color: var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-    .mainLayout { flex: 1; min-height: 0; display: flex; }
+    .mainLayout { position: relative; flex: 1; min-height: 0; display: block; overflow: hidden; }
     .panelButton:hover, .iconButton:hover { border-color: #3a3b42; color: white; }
-    .leftPanel { width: 260px; flex: 0 0 260px; min-height: 0; display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--panel); }
-    .rightPanel { width: 300px; flex: 0 0 300px; min-height: 0; display: flex; flex-direction: column; border-left: 1px solid var(--border); background: var(--panel); }
-    .panelHeader { padding: 12px; border-bottom: 1px solid var(--border); }
+    .leftPanel, .rightPanel { position: absolute; z-index: 20; top: 16px; bottom: 16px; min-height: 0; display: flex; flex-direction: column; border: 1px solid rgba(255,255,255,0.09); border-radius: 24px; background: rgba(21, 22, 25, 0.84); backdrop-filter: blur(18px) saturate(130%); box-shadow: 0 24px 70px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.04); overflow: hidden; }
+    .leftPanel { left: 16px; width: 280px; }
+    .rightPanel { right: 16px; width: 320px; }
+    .panelHeader { padding: 14px; border-bottom: 1px solid rgba(255,255,255,0.07); background: rgba(18,19,22,0.35); }
     .panelTitle { font-size: 13px; font-weight: 650; }
     .panelSub { margin-top: 3px; color: var(--muted); font-size: 11px; }
     .tabs { display: flex; gap: 6px; margin-top: 12px; }
@@ -946,7 +947,7 @@ export default function App() {
     .tagRow { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
     .tag { border: 1px solid var(--border); border-radius: 5px; padding: 2px 5px; color: var(--muted); font-size: 10px; line-height: 1; }
     .tag.active { border-color: var(--blue); background: #172554; color: #93c5fd; }
-    .panelFooter { border-top: 1px solid var(--border); padding: 12px; }
+    .panelFooter { border-top: 1px solid rgba(255,255,255,0.07); padding: 12px; background: rgba(18,19,22,0.35); }
     .twoButtons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .panelButton, .iconButton { border: 1px solid var(--border); border-radius: 8px; background: var(--panel2); color: #d7d7d7; font-size: 11px; min-height: 32px; }
     .panelButton.primary { background: #1d4ed8; border-color: var(--blue); color: white; }
@@ -973,7 +974,7 @@ export default function App() {
     .toggle.on { background: #1d4ed8; border-color: var(--blue); color: white; }
     .sizeBox { border: 1px solid var(--border); border-radius: 8px; background: #121316; padding: 8px; color: var(--muted); font-size: 11px; }
     .sizeBox b { color: var(--measure); font-weight: 600; }
-    .viewport { position: relative; flex: 1; min-width: 0; overflow: hidden; background: radial-gradient(circle at 50% 20%, #202229 0, #18191c 45%, #121316 100%); }
+    .viewport { position: absolute; z-index: 0; inset: 0; min-width: 0; overflow: hidden; background: radial-gradient(circle at 50% 20%, #202229 0, #18191c 45%, #121316 100%); }
     .threeHost { position: absolute; inset: 0; }
     .threeHost canvas { display: block; width: 100%; height: 100%; }
     .floatingToolbar { position: absolute; z-index: 30; top: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 5px; padding: 6px; border: 1px solid var(--border); border-radius: 13px; background: rgba(18, 19, 22, 0.92); backdrop-filter: blur(12px); box-shadow: 0 18px 40px rgba(0,0,0,0.35); }
@@ -988,10 +989,26 @@ export default function App() {
     .libraryItem { width: 76px; height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel2); color: var(--muted); font-size: 9px; text-align: center; white-space: nowrap; }
     .libraryItem:hover { color: white; border-color: var(--blue); }
     .libraryIcon { width: 18px; height: 18px; display: block; background: currentColor; -webkit-mask: var(--icon-url) center / contain no-repeat; mask: var(--icon-url) center / contain no-repeat; }
-    .viewportBadge { position: absolute; z-index: 10; right: 15px; top: 15px; border: 1px solid var(--border); border-radius: 9px; background: rgba(18,19,22,0.82); color: var(--muted); font-size: 11px; padding: 7px 10px; pointer-events: none; }
-    .mouseHelp { position: absolute; left: 14px; bottom: 14px; max-width: 390px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 12px; background: rgba(18,19,22,0.86); color: var(--muted); font-size: 11px; pointer-events: none; }
+    .viewportBadge { position: absolute; z-index: 10; right: 352px; top: 18px; border: 1px solid var(--border); border-radius: 9px; background: rgba(18,19,22,0.82); color: var(--muted); font-size: 11px; padding: 7px 10px; pointer-events: none; }
+    .mouseHelp { position: absolute; left: 312px; bottom: 18px; max-width: 390px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 12px; background: rgba(18,19,22,0.86); color: var(--muted); font-size: 11px; pointer-events: none; }
     .viewSwitch { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; gap: 4px; padding: 4px; border: 1px solid var(--border); border-radius: 10px; background: rgba(18,19,22,0.86); pointer-events: none; }
     .viewSwitch button { height: 26px; padding: 0 12px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); font-size: 11px; }
     .viewSwitch button.active { background: var(--panel2); color: var(--text); }
+    @media (max-width: 1020px) {
+      .leftPanel { width: 252px; left: 12px; }
+      .rightPanel { width: 292px; right: 12px; }
+      .viewportBadge { right: 318px; }
+      .mouseHelp { left: 282px; max-width: 320px; }
+    }
+    @media (max-width: 760px) {
+      .leftPanel, .rightPanel { left: 12px; right: 12px; width: auto; top: auto; bottom: auto; max-height: calc(50vh - 22px); border-radius: 22px; }
+      .leftPanel { top: 12px; }
+      .rightPanel { bottom: 12px; }
+      .panelHeader { padding: 12px; }
+      .panelScroll { padding: 10px; }
+      .floatingToolbar { top: calc(50vh - 23px); }
+      .libraryPopup { top: calc(50vh + 30px); max-width: calc(100vw - 24px); overflow-x: auto; }
+      .viewportBadge, .mouseHelp, .viewSwitch { display: none; }
+    }
   `}</style><div className="mainLayout"><LeftPanel activeTab={activeTab} setActiveTab={setActiveTab} printList={printList} onCopy={copyBuildList} onDownload={downloadTxt} /><Viewport config={config} tiles={tiles} setTiles={setTiles} selectedIds={selectedIds} setSelectedIds={setSelectedIds} activeColor={activeColor} showRuler={showRuler} setShowRuler={setShowRuler} /><RightPanel config={config} setConfig={updateConfig} activeColor={activeColor} setActiveColor={setActiveColor} selectionCount={selectedIds.length} onReset={resetConfiguration} onShare={shareBuildList} onExport={downloadTxt} /></div></div>;
 }
