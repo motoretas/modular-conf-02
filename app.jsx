@@ -742,10 +742,6 @@ if (typeof window !== "undefined" && !window.__MODULAR_DIORAMA_THREE_VANILLA_TES
 
 function MiniIcon({ Icon }) { return <Icon className="miniIcon" aria-hidden="true" strokeWidth={2} />; }
 
-function TopBar({ onExport }) {
-  return <header className="topBar"><div className="brandArea"><div className="appMark">▧</div><div className="appTitle">Modular Diorama Configurator</div><button className="tinyTool" title="Scene">▦</button><button className="tinyTool" title="Assets">▤</button><button className="tinyTool" title="Grid">⌗</button></div><div className="topActions"><button className="topButton">Share</button><button className="topButton primary" onClick={onExport}>Export</button></div></header>;
-}
-
 function Tag({ children, active }) { return <span className={active ? "tag active" : "tag"}>{children}</span>; }
 
 function LeftPanel({ activeTab, setActiveTab, printList, onCopy, onDownload }) {
@@ -761,8 +757,8 @@ function Toggle({ label, value, onChange }) {
   return <div className="toggleRow"><span>{label}</span><button className={value ? "toggle on" : "toggle"} onClick={() => onChange(!value)}>{value ? "Yes" : "No"}</button></div>;
 }
 
-function RightPanel({ config, setConfig, activeColor, setActiveColor, selectionCount, onReset }) {
-  return <aside className="rightPanel"><div className="panelHeader inspectorHeader"><div><div className="panelTitle">Inspector</div><div className="panelSub">{selectionCount} selected tile{selectionCount === 1 ? "" : "s"}</div></div><button className="iconButton" onClick={onReset} title="Reset Configuration">↺</button></div><div className="panelScroll settingsScroll"><section className="settingsBlock"><div className="settingsTitle">Tool Color</div><div className="colorRow"><input type="color" value={activeColor} onChange={(event) => setActiveColor(event.target.value)} /><span>{activeColor}</span></div></section><section className="settingsBlock"><div className="settingsTitle">Global Settings</div><label className="label">Theme</label><select value={config.theme} onChange={(event) => setConfig({ theme: event.target.value })}><option>Sci-Fi</option><option>Urban</option><option>Industrial</option></select><label className="label withTop">Scale</label><select value={config.scale} onChange={(event) => setConfig({ scale: event.target.value })}><option>1:12</option><option>1:10</option><option>Custom</option></select></section><section className="settingsBlock stack"><div className="settingsTitle">Grid</div><Stepper label="Width" value={config.width} min={1} max={10} onChange={(value) => setConfig({ width: value })} /><Stepper label="Depth" value={config.depth} min={1} max={10} onChange={(value) => setConfig({ depth: value })} /><Stepper label="Height" value={config.height} min={1} max={8} onChange={(value) => setConfig({ height: value })} /><div className="sizeBox">Size: <b>{config.width * MODULE_MM} mm</b> × <b>{config.depth * MODULE_MM} mm</b> × <b>{config.height * MODULE_MM} mm</b></div></section><section className="settingsBlock stack"><div className="settingsTitle">Walls</div><Toggle label="Back Wall" value={config.backWall} onChange={(value) => setConfig({ backWall: value })} /><Toggle label="Left Wall" value={config.leftWall} onChange={(value) => setConfig({ leftWall: value })} /><Toggle label="Right Wall" value={config.rightWall} onChange={(value) => setConfig({ rightWall: value })} /></section></div></aside>;
+function RightPanel({ config, setConfig, activeColor, setActiveColor, selectionCount, onReset, onShare, onExport }) {
+  return <aside className="rightPanel"><div className="panelHeader inspectorHeader"><div><div className="panelTitle">Inspector</div><div className="panelSub">{selectionCount} selected tile{selectionCount === 1 ? "" : "s"}</div></div><button className="iconButton" onClick={onReset} title="Reset Configuration">↺</button></div><div className="panelScroll settingsScroll"><section className="settingsBlock"><div className="settingsTitle">Tool Color</div><div className="colorRow"><input type="color" value={activeColor} onChange={(event) => setActiveColor(event.target.value)} /><span>{activeColor}</span></div></section><section className="settingsBlock"><div className="settingsTitle">Global Settings</div><label className="label">Theme</label><select value={config.theme} onChange={(event) => setConfig({ theme: event.target.value })}><option>Sci-Fi</option><option>Urban</option><option>Industrial</option></select><label className="label withTop">Scale</label><select value={config.scale} onChange={(event) => setConfig({ scale: event.target.value })}><option>1:12</option><option>1:10</option><option>Custom</option></select></section><section className="settingsBlock stack"><div className="settingsTitle">Grid</div><Stepper label="Width" value={config.width} min={1} max={10} onChange={(value) => setConfig({ width: value })} /><Stepper label="Depth" value={config.depth} min={1} max={10} onChange={(value) => setConfig({ depth: value })} /><Stepper label="Height" value={config.height} min={1} max={8} onChange={(value) => setConfig({ height: value })} /><div className="sizeBox">Size: <b>{config.width * MODULE_MM} mm</b> × <b>{config.depth * MODULE_MM} mm</b> × <b>{config.height * MODULE_MM} mm</b></div></section><section className="settingsBlock stack"><div className="settingsTitle">Walls</div><Toggle label="Back Wall" value={config.backWall} onChange={(value) => setConfig({ backWall: value })} /><Toggle label="Left Wall" value={config.leftWall} onChange={(value) => setConfig({ leftWall: value })} /><Toggle label="Right Wall" value={config.rightWall} onChange={(value) => setConfig({ rightWall: value })} /></section></div><div className="panelFooter twoButtons"><button className="panelButton" onClick={onShare}>Share</button><button className="panelButton primary" onClick={onExport}>Export</button></div></aside>;
 }
 
 function Toolbar({ activeTool, setActiveTool, showLibrary, setShowLibrary, showRuler, setShowRuler, onGroup, onRotate, onFlip, onPaint }) {
@@ -899,6 +895,18 @@ export default function App() {
     catch (error) { console.warn("Clipboard copy failed", error); }
   }
 
+  async function shareBuildList() {
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "Modular Diorama Build List", text: buildText });
+        return;
+      }
+      await navigator.clipboard.writeText(buildText);
+    } catch (error) {
+      console.warn("Share failed", error);
+    }
+  }
+
   function resetConfiguration() {
     setConfigState(DEFAULT_CONFIG);
     setTiles(makeTiles(DEFAULT_CONFIG));
@@ -914,14 +922,7 @@ export default function App() {
     button { cursor: pointer; }
     .appShell { width: 100vw; height: 100vh; overflow: hidden; display: flex; flex-direction: column; background: var(--bg); color: var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
     .mainLayout { flex: 1; min-height: 0; display: flex; }
-    .topBar { height: 44px; flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border-bottom: 1px solid var(--border); background: #101114; }
-    .brandArea, .topActions { display: flex; align-items: center; gap: 8px; }
-    .appMark { width: 25px; height: 25px; border: 1px solid var(--border); border-radius: 7px; background: var(--panel2); display: grid; place-items: center; color: var(--blue2); font-size: 14px; }
-    .appTitle { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
-    .tinyTool { width: 25px; height: 25px; border: 1px solid var(--border); border-radius: 7px; background: var(--panel); color: var(--muted); }
-    .topButton { height: 28px; padding: 0 11px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel2); color: #d7d7d7; font-size: 12px; }
-    .topButton.primary { background: #1d4ed8; border-color: var(--blue); color: white; }
-    .topButton:hover, .tinyTool:hover, .panelButton:hover, .iconButton:hover { border-color: #3a3b42; color: white; }
+    .panelButton:hover, .iconButton:hover { border-color: #3a3b42; color: white; }
     .leftPanel { width: 260px; flex: 0 0 260px; min-height: 0; display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--panel); }
     .rightPanel { width: 300px; flex: 0 0 300px; min-height: 0; display: flex; flex-direction: column; border-left: 1px solid var(--border); background: var(--panel); }
     .panelHeader { padding: 12px; border-bottom: 1px solid var(--border); }
@@ -948,6 +949,7 @@ export default function App() {
     .panelFooter { border-top: 1px solid var(--border); padding: 12px; }
     .twoButtons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .panelButton, .iconButton { border: 1px solid var(--border); border-radius: 8px; background: var(--panel2); color: #d7d7d7; font-size: 11px; min-height: 32px; }
+    .panelButton.primary { background: #1d4ed8; border-color: var(--blue); color: white; }
     .inspectorHeader { display: flex; align-items: center; justify-content: space-between; }
     .iconButton { width: 31px; height: 31px; font-size: 15px; }
     .settingsScroll { display: flex; flex-direction: column; gap: 12px; }
@@ -991,5 +993,5 @@ export default function App() {
     .viewSwitch { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; gap: 4px; padding: 4px; border: 1px solid var(--border); border-radius: 10px; background: rgba(18,19,22,0.86); pointer-events: none; }
     .viewSwitch button { height: 26px; padding: 0 12px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); font-size: 11px; }
     .viewSwitch button.active { background: var(--panel2); color: var(--text); }
-  `}</style><TopBar onExport={downloadTxt} /><div className="mainLayout"><LeftPanel activeTab={activeTab} setActiveTab={setActiveTab} printList={printList} onCopy={copyBuildList} onDownload={downloadTxt} /><Viewport config={config} tiles={tiles} setTiles={setTiles} selectedIds={selectedIds} setSelectedIds={setSelectedIds} activeColor={activeColor} showRuler={showRuler} setShowRuler={setShowRuler} /><RightPanel config={config} setConfig={updateConfig} activeColor={activeColor} setActiveColor={setActiveColor} selectionCount={selectedIds.length} onReset={resetConfiguration} /></div></div>;
+  `}</style><div className="mainLayout"><LeftPanel activeTab={activeTab} setActiveTab={setActiveTab} printList={printList} onCopy={copyBuildList} onDownload={downloadTxt} /><Viewport config={config} tiles={tiles} setTiles={setTiles} selectedIds={selectedIds} setSelectedIds={setSelectedIds} activeColor={activeColor} showRuler={showRuler} setShowRuler={setShowRuler} /><RightPanel config={config} setConfig={updateConfig} activeColor={activeColor} setActiveColor={setActiveColor} selectionCount={selectedIds.length} onReset={resetConfiguration} onShare={shareBuildList} onExport={downloadTxt} /></div></div>;
 }
