@@ -1000,7 +1000,7 @@ export default function App() {
       .viewportBadge { right: 318px; }
       .mouseHelp { left: 282px; max-width: 320px; }
     }
-    @media (max-width: 760px) {
+    @media (max-width: 880px) {
       .leftPanel, .rightPanel { left: 12px; right: 12px; width: auto; top: auto; bottom: auto; max-height: calc(50vh - 22px); border-radius: 22px; }
       .leftPanel { top: 12px; }
       .rightPanel { bottom: 12px; }
