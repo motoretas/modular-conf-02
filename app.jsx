@@ -19,6 +19,9 @@ const CATALOG = [
   { id: "scifi_wall_louver_50_v01", name: "Sci-Fi Wall Louver", category: "wall", theme: "scifi", variant: "louver", width_mm: 50, depth_mm: 8, height_mm: 50, file_stl: "scifi_wall_louver_50_v01.stl", file_3mf: "scifi_wall_louver_50_v01.3mf", print_orientation: "Face-down", supports: false, bed_texture_finish: true, notes: "Prepared asset. Not assigned to prototype geometry yet." },
   { id: "scifi_wall_hatch_50_v01", name: "Sci-Fi Wall Hatch", category: "wall", theme: "scifi", variant: "hatch", width_mm: 50, depth_mm: 8, height_mm: 50, file_stl: "scifi_wall_hatch_50_v01.stl", file_3mf: "scifi_wall_hatch_50_v01.3mf", print_orientation: "Face-down", supports: false, bed_texture_finish: true, notes: "Prepared asset. Not assigned to prototype geometry yet." },
   { id: "scifi_wall_vent_50_v01", name: "Sci-Fi Wall Vent", category: "wall", theme: "scifi", variant: "vent", width_mm: 50, depth_mm: 8, height_mm: 50, file_stl: "scifi_wall_vent_50_v01.stl", file_3mf: "scifi_wall_vent_50_v01.3mf", print_orientation: "Face-down", supports: false, bed_texture_finish: true, notes: "Prepared asset. Not assigned to prototype geometry yet." },
+  { id: "scifi_wall_panel_light_1x3_v01", name: "Sci-Fi Wall Panel Light", category: "wall", theme: "scifi", variant: "panel_light_1x3", width_mm: 50, depth_mm: 8, height_mm: 150, file_stl: "SCIFI_WALL_1x3_A.stl", file_3mf: "SCIFI_WALL_1x3_A.3mf", print_orientation: "Face-down", supports: false, bed_texture_finish: true, notes: "1x3 wall panel using SCIFI_WALL_1x3_A.gltf." },
+  { id: "scifi_wall_panel_hatch_1x3_v01", name: "Sci-Fi Wall Panel Hatch", category: "wall", theme: "scifi", variant: "panel_hatch_1x3", width_mm: 50, depth_mm: 8, height_mm: 150, file_stl: "SCIFI_WALL_1x3_B.stl", file_3mf: "SCIFI_WALL_1x3_B.3mf", print_orientation: "Face-down", supports: false, bed_texture_finish: true, notes: "1x3 wall panel using SCIFI_WALL_1x3_B.gltf." },
+  { id: "scifi_wall_panel_vent_1x3_v01", name: "Sci-Fi Wall Panel Vent", category: "wall", theme: "scifi", variant: "panel_vent_1x3", width_mm: 50, depth_mm: 8, height_mm: 150, file_stl: "SCIFI_WALL_1x3_C.stl", file_3mf: "SCIFI_WALL_1x3_C.3mf", print_orientation: "Face-down", supports: false, bed_texture_finish: true, notes: "1x3 wall panel using SCIFI_WALL_1x3_C.gltf." },
   { id: "scifi_connector_floor_h_v01", name: "Floor H Connector", category: "connector", theme: "scifi", variant: "floor_h_connector", width_mm: 18, depth_mm: 8, height_mm: 4, file_stl: "scifi_connector_floor_h_v01.stl", file_3mf: "scifi_connector_floor_h_v01.3mf", print_orientation: "Flat", supports: false, bed_texture_finish: false, notes: "Connector used between floor modules." },
   { id: "scifi_connector_wall_clip_v01", name: "Wall Clip Connector", category: "connector", theme: "scifi", variant: "wall_clip", width_mm: 14, depth_mm: 10, height_mm: 18, file_stl: "scifi_connector_wall_clip_v01.stl", file_3mf: "scifi_connector_wall_clip_v01.3mf", print_orientation: "Flat", supports: false, bed_texture_finish: false, notes: "Approximate wall connector count equals total wall tile count." },
   { id: "scifi_trim_front_50_v01", name: "Front Trim", category: "trim", theme: "scifi", variant: "front_trim", width_mm: 50, depth_mm: 8, height_mm: 8, file_stl: "scifi_trim_front_50_v01.stl", file_3mf: "scifi_trim_front_50_v01.3mf", print_orientation: "Flat", supports: false, bed_texture_finish: false, notes: "Front finishing trim." },
@@ -37,8 +40,18 @@ const GLTF_MODEL_BY_ID = {
   scifi_floor_base_c_50_v01: "/models/SCIFI_FLOOR_1x1_C.gltf",
   scifi_wall_base_a_50_v01: "/models/SCIFI_WALL_1x1_A.gltf",
   scifi_wall_base_b_50_v01: "/models/SCIFI_WALL_1x1_B.gltf",
-  scifi_wall_base_c_50_v01: "/models/SCIFI_WALL_1x1_C.gltf"
+  scifi_wall_base_c_50_v01: "/models/SCIFI_WALL_1x1_C.gltf",
+  scifi_wall_panel_light_1x3_v01: "/models/SCIFI_WALL_1x3_A.gltf",
+  scifi_wall_panel_hatch_1x3_v01: "/models/SCIFI_WALL_1x3_B.gltf",
+  scifi_wall_panel_vent_1x3_v01: "/models/SCIFI_WALL_1x3_C.gltf"
 };
+const PANEL_SPAN_H = 3;
+const PANEL_MODEL_BY_ACTION = {
+  panel_light: "scifi_wall_panel_light_1x3_v01",
+  panel_hatch: "scifi_wall_panel_hatch_1x3_v01",
+  panel_vent: "scifi_wall_panel_vent_1x3_v01"
+};
+const PANEL_MODEL_IDS = new Set(Object.values(PANEL_MODEL_BY_ACTION));
 const LIBRARY_ITEMS = [
   { key: "plain", label: "Plain Tile", family: "floor", iconSrc: "/icons/SCIFI_FLOOR_1x1_A.svg" },
   { key: "corner", label: "Corner Slots", family: "floor", iconSrc: "/icons/SCIFI_FLOOR_1x1_B.svg" },
@@ -78,10 +91,93 @@ function getModelForLibraryAction(actionKey) {
   if (actionKey === "modular") return "scifi_wall_base_a_50_v01";
   if (actionKey === "hatch") return "scifi_wall_base_b_50_v01";
   if (actionKey === "vent") return "scifi_wall_base_c_50_v01";
-  if (actionKey === "panel_light") return "scifi_wall_base_a_50_v01";
-  if (actionKey === "panel_hatch") return "scifi_wall_base_b_50_v01";
-  if (actionKey === "panel_vent") return "scifi_wall_base_c_50_v01";
+  if (PANEL_MODEL_BY_ACTION[actionKey]) return PANEL_MODEL_BY_ACTION[actionKey];
   return null;
+}
+
+function isPanelModel(modelId) {
+  return PANEL_MODEL_IDS.has(modelId);
+}
+
+function getWallTileId(side, x, z, h) {
+  if (side === "back") return `wall_back_${x}_h${h}`;
+  if (side === "left") return `wall_left_${z}_h${h}`;
+  if (side === "right") return `wall_right_${z}_h${h}`;
+  return "";
+}
+
+function getWallLineKey(tile) {
+  if (!tile || tile.type !== "wall") return "";
+  return tile.side === "back" ? `${tile.side}:${tile.x}` : `${tile.side}:${tile.z}`;
+}
+
+function getPanelCellId(tile, axis, offset) {
+  if (!tile) return "";
+  if (tile.type === "floor") {
+    if (axis === "x") return `floor_${tile.x + offset}_${tile.z}`;
+    if (axis === "z") return `floor_${tile.x}_${tile.z + offset}`;
+  }
+  if (tile.type === "wall" && axis === "h") return getWallTileId(tile.side, tile.x, tile.z, tile.h + offset);
+  return "";
+}
+
+function getPanelCoveredIds(tile, axis = tile ? tile.spanAxis : null) {
+  if (!tile || !axis) return [];
+  return Array.from({ length: PANEL_SPAN_H - 1 }, (_, index) => getPanelCellId(tile, axis, index + 1));
+}
+
+function findPanelAnchor(tiles, selectedIds) {
+  const tileById = Object.fromEntries(tiles.map((tile) => [tile.id, tile]));
+  const selectedTiles = selectedIds.map((id) => tileById[id]).filter((tile) => tile && !tile.coveredBy);
+  if (selectedTiles.length === 1 && isPanelModel(selectedTiles[0].modelId)) return { anchor: selectedTiles[0], axis: selectedTiles[0].spanAxis || (selectedTiles[0].type === "wall" ? "h" : "z") };
+  if (selectedTiles.length < PANEL_SPAN_H) return null;
+  const selectedSet = new Set(selectedTiles.map((tile) => tile.id));
+  const floorTiles = selectedTiles.filter((tile) => tile.type === "floor");
+  if (floorTiles.length === selectedTiles.length) {
+    const candidates = floorTiles.slice().sort((a, b) => a.z - b.z || a.x - b.x);
+    for (const tile of candidates) {
+      for (const axis of ["z", "x"]) {
+        const coveredIds = getPanelCoveredIds(tile, axis);
+        const ids = [tile.id].concat(coveredIds);
+        const validLine = coveredIds.every((id) => {
+          const coveredTile = tileById[id];
+          return coveredTile && !coveredTile.coveredBy && coveredTile.type === "floor";
+        });
+        if (validLine && ids.every((id) => selectedSet.has(id))) return { anchor: tile, axis };
+      }
+    }
+  }
+  const wallTiles = selectedTiles.filter((tile) => tile.type === "wall");
+  if (wallTiles.length === selectedTiles.length) {
+    const candidates = wallTiles.slice().sort((a, b) => a.h - b.h);
+    for (const tile of candidates) {
+      const coveredIds = getPanelCoveredIds(tile, "h");
+      const ids = [tile.id].concat(coveredIds);
+      const sameLine = coveredIds.every((id) => {
+        const coveredTile = tileById[id];
+        return coveredTile && !coveredTile.coveredBy && getWallLineKey(coveredTile) === getWallLineKey(tile);
+      });
+      if (sameLine && ids.every((id) => selectedSet.has(id))) return { anchor: tile, axis: "h" };
+    }
+  }
+  return null;
+}
+
+function applyPanelModelToTiles(tiles, selectedIds, modelId) {
+  const panelPlacement = findPanelAnchor(tiles, selectedIds);
+  if (!panelPlacement) return null;
+  const { anchor, axis } = panelPlacement;
+  const coveredIds = getPanelCoveredIds(anchor, axis);
+  const affectedIds = new Set([anchor.id].concat(coveredIds));
+  return {
+    anchorId: anchor.id,
+    tiles: tiles.map((tile) => {
+      if (tile.id === anchor.id) return { ...tile, modelId, spanH: axis === "h" ? PANEL_SPAN_H : 1, spanAxis: axis, spanSize: PANEL_SPAN_H, coveredBy: null, rotation: 0, groupId: null };
+      if (coveredIds.includes(tile.id)) return { ...tile, coveredBy: anchor.id, spanH: 1, spanAxis: null, spanSize: 1, groupId: null };
+      if (affectedIds.has(tile.coveredBy)) return { ...tile, coveredBy: null };
+      return tile;
+    })
+  };
 }
 
 function makeTiles(config, previousById = {}) {
@@ -91,7 +187,7 @@ function makeTiles(config, previousById = {}) {
       const id = `floor_${x}_${z}`;
       const previous = previousById[id] || {};
       const color = getStoredPaintColor(previous);
-      tiles.push({ id, type: "floor", side: "floor", x, z, h: 0, modelId: previous.modelId || DEFAULT_MODEL_BY_TYPE.floor, color, painted: Boolean(color), rotation: previous.rotation || 0, flip: previous.flip || false, groupId: previous.groupId || null });
+      tiles.push({ id, type: "floor", side: "floor", x, z, h: 0, modelId: previous.modelId || DEFAULT_MODEL_BY_TYPE.floor, color, painted: Boolean(color), rotation: previous.rotation || 0, flip: previous.flip || false, groupId: previous.groupId || null, spanH: 1, spanAxis: previous.spanAxis || null, spanSize: previous.spanSize || 1, coveredBy: previous.coveredBy || null });
     }
   }
   if (config.backWall) {
@@ -100,7 +196,8 @@ function makeTiles(config, previousById = {}) {
         const id = `wall_back_${x}_h${h}`;
         const previous = previousById[id] || {};
         const color = getStoredPaintColor(previous);
-        tiles.push({ id, type: "wall", side: "back", x, z: 0, h, modelId: previous.modelId || DEFAULT_MODEL_BY_TYPE.wall, color, painted: Boolean(color), rotation: previous.rotation || 0, flip: previous.flip || false, groupId: previous.groupId || null });
+        const spanH = previous.spanH && h + previous.spanH <= config.height ? previous.spanH : 1;
+        tiles.push({ id, type: "wall", side: "back", x, z: 0, h, modelId: previous.modelId || DEFAULT_MODEL_BY_TYPE.wall, color, painted: Boolean(color), rotation: previous.rotation || 0, flip: previous.flip || false, groupId: previous.groupId || null, spanH, spanAxis: previous.spanAxis || null, spanSize: previous.spanSize || 1, coveredBy: previous.coveredBy || null });
       }
     }
   }
@@ -110,7 +207,8 @@ function makeTiles(config, previousById = {}) {
         const id = `wall_left_${z}_h${h}`;
         const previous = previousById[id] || {};
         const color = getStoredPaintColor(previous);
-        tiles.push({ id, type: "wall", side: "left", x: 0, z, h, modelId: previous.modelId || DEFAULT_MODEL_BY_TYPE.wall, color, painted: Boolean(color), rotation: previous.rotation || 0, flip: previous.flip || false, groupId: previous.groupId || null });
+        const spanH = previous.spanH && h + previous.spanH <= config.height ? previous.spanH : 1;
+        tiles.push({ id, type: "wall", side: "left", x: 0, z, h, modelId: previous.modelId || DEFAULT_MODEL_BY_TYPE.wall, color, painted: Boolean(color), rotation: previous.rotation || 0, flip: previous.flip || false, groupId: previous.groupId || null, spanH, spanAxis: previous.spanAxis || null, spanSize: previous.spanSize || 1, coveredBy: previous.coveredBy || null });
       }
     }
   }
@@ -120,7 +218,8 @@ function makeTiles(config, previousById = {}) {
         const id = `wall_right_${z}_h${h}`;
         const previous = previousById[id] || {};
         const color = getStoredPaintColor(previous);
-        tiles.push({ id, type: "wall", side: "right", x: config.width - 1, z, h, modelId: previous.modelId || DEFAULT_MODEL_BY_TYPE.wall, color, painted: Boolean(color), rotation: previous.rotation || 0, flip: previous.flip || false, groupId: previous.groupId || null });
+        const spanH = previous.spanH && h + previous.spanH <= config.height ? previous.spanH : 1;
+        tiles.push({ id, type: "wall", side: "right", x: config.width - 1, z, h, modelId: previous.modelId || DEFAULT_MODEL_BY_TYPE.wall, color, painted: Boolean(color), rotation: previous.rotation || 0, flip: previous.flip || false, groupId: previous.groupId || null, spanH, spanAxis: previous.spanAxis || null, spanSize: previous.spanSize || 1, coveredBy: previous.coveredBy || null });
       }
     }
   }
@@ -132,16 +231,36 @@ function getTileTransform(tile, config) {
   const halfW = (config.width * UNIT) / 2;
   const halfD = (config.depth * UNIT) / 2;
   const offset = TILE_THICKNESS / 2;
-  if (tile.type === "floor") return { position: [(tile.x + 0.5) * UNIT - halfW, TILE_THICKNESS / 2, (tile.z + 0.5) * UNIT - halfD], rotation: [0, 0, 0], contentRotation: [0, rotationRad, 0], size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT] };
-  if (tile.side === "back") return { position: [(tile.x + 0.5) * UNIT - halfW, (tile.h + 0.5) * UNIT, -halfD - offset], rotation: [Math.PI / 2, getWallRotationY(tile.side), 0], rotationOrder: "YXZ", contentRotation: [0, rotationRad, 0], size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT] };
-  if (tile.side === "left") return { position: [-halfW - offset, (tile.h + 0.5) * UNIT, (tile.z + 0.5) * UNIT - halfD], rotation: [Math.PI / 2, getWallRotationY(tile.side), 0], rotationOrder: "YXZ", contentRotation: [0, rotationRad, 0], size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT] };
-  if (tile.side === "right") return { position: [halfW + offset, (tile.h + 0.5) * UNIT, (tile.z + 0.5) * UNIT - halfD], rotation: [Math.PI / 2, getWallRotationY(tile.side), 0], rotationOrder: "YXZ", contentRotation: [0, rotationRad, 0], size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT] };
+  const spanAxis = tile.spanAxis || (tile.type === "wall" ? "h" : "z");
+  const spanSize = tile.spanSize || 1;
+  const spanH = tile.spanH || 1;
+  const wallY = (tile.h + spanH / 2) * UNIT;
+  const panelSelection = [VISUAL_TILE_UNIT + 0.01, spanH * UNIT - 0.01, 0.026];
+  if (tile.type === "floor" && isPanelModel(tile.modelId)) {
+    const length = spanSize * UNIT;
+    const position = spanAxis === "x"
+      ? [(tile.x + spanSize / 2) * UNIT - halfW, TILE_THICKNESS / 2, (tile.z + 0.5) * UNIT - halfD]
+      : [(tile.x + 0.5) * UNIT - halfW, TILE_THICKNESS / 2, (tile.z + spanSize / 2) * UNIT - halfD];
+    return { position, rotation: [0, 0, 0], contentRotation: [0, (spanAxis === "x" ? Math.PI / 2 : 0) + rotationRad, 0], targetPlane: "XZ", size: [spanAxis === "x" ? length : VISUAL_TILE_UNIT, TILE_THICKNESS, spanAxis === "z" ? length : VISUAL_TILE_UNIT], hitbox: [spanAxis === "x" ? length : UNIT, 0.16, spanAxis === "z" ? length : UNIT], selectionSize: [spanAxis === "x" ? length - 0.01 : VISUAL_TILE_UNIT + 0.01, TILE_THICKNESS + 0.006, spanAxis === "z" ? length - 0.01 : VISUAL_TILE_UNIT + 0.01] };
+  }
+  if (tile.type === "floor") return { position: [(tile.x + 0.5) * UNIT - halfW, TILE_THICKNESS / 2, (tile.z + 0.5) * UNIT - halfD], rotation: [0, 0, 0], contentRotation: [0, rotationRad, 0], targetPlane: "XZ", size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT], selectionSize: [VISUAL_TILE_UNIT + 0.01, TILE_THICKNESS + 0.006, VISUAL_TILE_UNIT + 0.01] };
+  if (isPanelModel(tile.modelId)) {
+    if (tile.side === "back") return { position: [(tile.x + 0.5) * UNIT - halfW, wallY, -halfD - offset], rotation: [0, 0, 0], contentRotation: [0, 0, rotationRad], targetPlane: "XY", size: [VISUAL_TILE_UNIT, spanH * UNIT, TILE_THICKNESS], hitbox: [UNIT, spanH * UNIT, 0.16], selectionSize: panelSelection };
+    if (tile.side === "left") return { position: [-halfW - offset, wallY, (tile.z + 0.5) * UNIT - halfD], rotation: [0, -Math.PI / 2, 0], contentRotation: [0, 0, rotationRad], targetPlane: "XY", size: [VISUAL_TILE_UNIT, spanH * UNIT, TILE_THICKNESS], hitbox: [UNIT, spanH * UNIT, 0.16], selectionSize: panelSelection };
+    if (tile.side === "right") return { position: [halfW + offset, wallY, (tile.z + 0.5) * UNIT - halfD], rotation: [0, Math.PI / 2, 0], contentRotation: [0, 0, rotationRad], targetPlane: "XY", size: [VISUAL_TILE_UNIT, spanH * UNIT, TILE_THICKNESS], hitbox: [UNIT, spanH * UNIT, 0.16], selectionSize: panelSelection };
+  }
+  if (tile.side === "back") return { position: [(tile.x + 0.5) * UNIT - halfW, wallY, -halfD - offset], rotation: [Math.PI / 2, getWallRotationY(tile.side), 0], rotationOrder: "YXZ", contentRotation: [0, rotationRad, 0], size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT], selectionSize: [VISUAL_TILE_UNIT + 0.01, TILE_THICKNESS + 0.006, VISUAL_TILE_UNIT + 0.01] };
+  if (tile.side === "left") return { position: [-halfW - offset, wallY, (tile.z + 0.5) * UNIT - halfD], rotation: [Math.PI / 2, getWallRotationY(tile.side), 0], rotationOrder: "YXZ", contentRotation: [0, rotationRad, 0], size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT], selectionSize: [VISUAL_TILE_UNIT + 0.01, TILE_THICKNESS + 0.006, VISUAL_TILE_UNIT + 0.01] };
+  if (tile.side === "right") return { position: [halfW + offset, wallY, (tile.z + 0.5) * UNIT - halfD], rotation: [Math.PI / 2, getWallRotationY(tile.side), 0], rotationOrder: "YXZ", contentRotation: [0, rotationRad, 0], size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT], selectionSize: [VISUAL_TILE_UNIT + 0.01, TILE_THICKNESS + 0.006, VISUAL_TILE_UNIT + 0.01] };
   return { position: [0, 0, 0], rotation: [0, 0, 0], contentRotation: [0, 0, 0], size: [VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT], hitbox: [UNIT, 0.16, UNIT] };
 }
 
 function countByModel(tiles) {
   const result = {};
-  tiles.forEach((tile) => { result[tile.modelId] = (result[tile.modelId] || 0) + 1; });
+  tiles.forEach((tile) => {
+    if (tile.coveredBy) return;
+    result[tile.modelId] = (result[tile.modelId] || 0) + 1;
+  });
   return result;
 }
 
@@ -223,8 +342,8 @@ function setContentRotation(object, transform) {
   object.rotation.set(rotation[0], rotation[1], rotation[2]);
 }
 
-function makeSelectionEdges() {
-  const geometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(VISUAL_TILE_UNIT + 0.01, TILE_THICKNESS + 0.006, VISUAL_TILE_UNIT + 0.01));
+function makeSelectionEdges(size = [VISUAL_TILE_UNIT + 0.01, TILE_THICKNESS + 0.006, VISUAL_TILE_UNIT + 0.01]) {
+  const geometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(size[0], size[1], size[2]));
   const material = new THREE.LineBasicMaterial({ color: "#ff2d2d", depthTest: true, depthWrite: false });
   const edges = new THREE.LineSegments(geometry, material);
   edges.raycast = function () {};
@@ -376,13 +495,33 @@ function ThreeViewport({ config, tiles, selectedIds, onSelectTile, clearSelectio
       }
     }
 
-    function makeTileModel(modelId, color) {
+    function normalizePanelGeometry(geometry, targetPlane) {
+      geometry.computeBoundingBox();
+      const size = new THREE.Vector3();
+      geometry.boundingBox.getSize(size);
+      const axes = [
+        { key: "x", value: Math.abs(size.x) },
+        { key: "y", value: Math.abs(size.y) },
+        { key: "z", value: Math.abs(size.z) }
+      ].sort((a, b) => a.value - b.value);
+      const thinAxis = axes[0].key;
+      if (targetPlane === "XY" && thinAxis === "y") geometry.applyMatrix4(new THREE.Matrix4().makeRotationX(-Math.PI / 2));
+      if (targetPlane === "XY" && thinAxis === "x") geometry.applyMatrix4(new THREE.Matrix4().makeRotationY(Math.PI / 2));
+      if (targetPlane === "XZ" && thinAxis === "z") geometry.applyMatrix4(new THREE.Matrix4().makeRotationX(-Math.PI / 2));
+      geometry.computeBoundingBox();
+      const center = new THREE.Vector3();
+      geometry.boundingBox.getCenter(center);
+      geometry.translate(-center.x, -center.y, -center.z);
+    }
+
+    function makeTileModel(modelId, color, transform) {
       const source = gltfModels[modelId];
       if (!source) return null;
       const model = source.clone(true);
       model.traverse((child) => {
         if (!child.isMesh) return;
         child.geometry = child.geometry.clone();
+        if (isPanelModel(modelId)) normalizePanelGeometry(child.geometry, transform ? transform.targetPlane : "XY");
         if (!child.geometry.attributes.normal) child.geometry.computeVertexNormals();
         child.material = makeMediumGrayMaterial(child.material, color);
         child.castShadow = false;
@@ -395,8 +534,8 @@ function ThreeViewport({ config, tiles, selectedIds, onSelectTile, clearSelectio
     function buildTiles(currentConfig, currentTiles, currentSelected) {
       clearGroup(tileRoot);
       hitboxes.length = 0;
-      const hitGeometry = new THREE.BoxGeometry(UNIT, 0.16, UNIT);
       currentTiles.forEach((tile) => {
+        if (tile.coveredBy) return;
         const transform = getTileTransform(tile, currentConfig);
         const asset = ASSET_BY_ID[tile.modelId];
         const selected = currentSelected.includes(tile.id);
@@ -407,7 +546,7 @@ function ThreeViewport({ config, tiles, selectedIds, onSelectTile, clearSelectio
         setObjectTransform(group, transform);
         setContentRotation(content, transform);
         if (tile.flip) content.scale.x = -1;
-        const model = makeTileModel(tile.modelId, displayColor);
+        const model = makeTileModel(tile.modelId, displayColor, transform);
         if (model) content.add(model);
         else {
           const material = new THREE.MeshStandardMaterial({ color: displayColor, roughness: 0.78, metalness: 0.08, emissive: new THREE.Color("#000000"), emissiveIntensity: 0 });
@@ -421,9 +560,9 @@ function ThreeViewport({ config, tiles, selectedIds, onSelectTile, clearSelectio
           content.add(variantGroup);
         }
         if (selected) {
-          content.add(makeSelectionEdges());
+          content.add(makeSelectionEdges(transform.selectionSize));
         }
-        const hitbox = new THREE.Mesh(hitGeometry.clone(), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+        const hitbox = new THREE.Mesh(new THREE.BoxGeometry(transform.hitbox[0], transform.hitbox[1], transform.hitbox[2]), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
         hitbox.userData.tileId = tile.id;
         content.add(hitbox);
         group.add(content);
@@ -596,6 +735,11 @@ function runLogicTests() {
   const floorConnector = printList.connector.find((item) => item.asset.id === "scifi_connector_floor_h_v01");
   const wallConnector = printList.connector.find((item) => item.asset.id === "scifi_connector_wall_clip_v01");
   const backTransform = getTileTransform(backWalls[0], config);
+  const panelResult = applyPanelModelToTiles(tiles, ["wall_back_0_h0", "wall_back_0_h1", "wall_back_0_h2"], "scifi_wall_panel_light_1x3_v01");
+  const panelAnchor = panelResult ? panelResult.tiles.find((tile) => tile.id === "wall_back_0_h0") : null;
+  const panelCounts = panelResult ? countByModel(panelResult.tiles) : {};
+  const floorPanelResult = applyPanelModelToTiles(tiles, ["floor_0_0", "floor_1_0", "floor_2_0"], "scifi_wall_panel_hatch_1x3_v01");
+  const floorPanelAnchor = floorPanelResult ? floorPanelResult.tiles.find((tile) => tile.id === "floor_0_0") : null;
   console.assert(floors.length === 9, "Expected 9 floor tiles in the default 3x3 scene");
   console.assert(backWalls.length === 9, "Expected 9 back wall tiles in the default scene");
   console.assert(getModelForLibraryAction("corner") === "scifi_floor_base_b_50_v01", "Corner Slots must map to Floor Base B");
@@ -603,9 +747,12 @@ function runLogicTests() {
   console.assert(getModelForLibraryAction("modular") === "scifi_wall_base_a_50_v01", "Wall Light must map to Wall Base A");
   console.assert(getModelForLibraryAction("hatch") === "scifi_wall_base_b_50_v01", "Hatch must map to Wall Base B");
   console.assert(getModelForLibraryAction("vent") === "scifi_wall_base_c_50_v01", "Vent must map to Wall Base C");
-  console.assert(getModelForLibraryAction("panel_light") === "scifi_wall_base_a_50_v01", "Panel Light must map to Wall Base A until a 1x3 model is available");
-  console.assert(getModelForLibraryAction("panel_hatch") === "scifi_wall_base_b_50_v01", "Panel Hatch must map to Wall Base B until a 1x3 model is available");
-  console.assert(getModelForLibraryAction("panel_vent") === "scifi_wall_base_c_50_v01", "Panel Vent must map to Wall Base C until a 1x3 model is available");
+  console.assert(getModelForLibraryAction("panel_light") === "scifi_wall_panel_light_1x3_v01", "Panel Light must map to the 1x3 Wall Panel Light");
+  console.assert(getModelForLibraryAction("panel_hatch") === "scifi_wall_panel_hatch_1x3_v01", "Panel Hatch must map to the 1x3 Wall Panel Hatch");
+  console.assert(getModelForLibraryAction("panel_vent") === "scifi_wall_panel_vent_1x3_v01", "Panel Vent must map to the 1x3 Wall Panel Vent");
+  console.assert(panelAnchor && panelAnchor.spanH === 3, "A 1x3 panel must occupy three vertical wall modules");
+  console.assert(panelCounts.scifi_wall_panel_light_1x3_v01 === 1, "A 1x3 panel must count as one printed wall panel");
+  console.assert(floorPanelAnchor && floorPanelAnchor.spanAxis === "x", "A 1x3 panel must also apply to three floor modules in a line");
   console.assert(floorConnector && floorConnector.quantity === 12, "Expected 12 floor connectors for a 3x3 floor grid");
   console.assert(wallConnector && wallConnector.quantity === 9, "Expected 9 wall connectors for a 3x3 back wall");
   console.assert(backTransform.rotation[0] === Math.PI / 2, "Back wall tile must be vertical and face inward");
@@ -684,16 +831,36 @@ function Viewport({ config, tiles, setTiles, selectedIds, setSelectedIds, active
 
   function applyLibraryModel(actionKey) {
     if (selectedIds.length === 0) return;
+    const modelId = getModelForLibraryAction(actionKey);
+    if (!modelId) {
+      console.warn("No prototype model assigned for", actionKey);
+      return;
+    }
+    if (isPanelModel(modelId)) {
+      const result = applyPanelModelToTiles(tiles, selectedIds, modelId);
+      if (!result) {
+        console.warn("Select three visible wall tiles in the same vertical line before applying a 1x3 panel.");
+        return;
+      }
+      setTiles(result.tiles);
+      setSelectedIds([result.anchorId]);
+      return;
+    }
     setTiles((previous) => previous.map((tile) => {
-      if (!selectedIds.includes(tile.id)) return tile;
-      const modelId = getModelForLibraryAction(actionKey);
-      if (!modelId) { console.warn("No prototype model assigned for", actionKey, "on", tile.type, ". Tile preserved:", tile.id); return tile; }
-      return { ...tile, modelId };
+      const selected = selectedIds.includes(tile.id);
+      const releasedBySelection = selectedIds.includes(tile.coveredBy);
+      if (selected) return { ...tile, modelId, spanH: 1, spanAxis: null, spanSize: 1, coveredBy: null };
+      if (releasedBySelection) return { ...tile, coveredBy: null };
+      return tile;
     }));
   }
 
   function paintSelected() { if (selectedIds.length === 0) return; setTiles((previous) => previous.map((tile) => selectedIds.includes(tile.id) ? { ...tile, color: activeColor, painted: true } : tile)); }
-  function rotateSelected() { if (selectedIds.length === 0) return; setTiles((previous) => previous.map((tile) => selectedIds.includes(tile.id) ? { ...tile, rotation: (tile.rotation + 90) % 360 } : tile)); }
+  function rotateSelected() { if (selectedIds.length === 0) return; setTiles((previous) => previous.map((tile) => {
+    if (!selectedIds.includes(tile.id)) return tile;
+    const rotationStep = isPanelModel(tile.modelId) ? 180 : 90;
+    return { ...tile, rotation: (tile.rotation + rotationStep) % 360 };
+  })); }
   function flipSelected() { if (selectedIds.length === 0) return; setTiles((previous) => previous.map((tile) => selectedIds.includes(tile.id) ? { ...tile, flip: !tile.flip } : tile)); }
 
   function groupSelected() {
