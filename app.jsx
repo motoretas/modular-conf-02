@@ -373,6 +373,7 @@ function makeVariantGroup(variant) {
 function ThreeViewport({ config, tiles, selectedIds, onSelectTile, clearSelection, showRuler }) {
   const hostRef = useRef(null);
   const dataRef = useRef({ config, tiles, selectedIds, onSelectTile, clearSelection, showRuler });
+  const viewportApiRef = useRef(null);
 
   useEffect(() => {
     dataRef.current = { config, tiles, selectedIds, onSelectTile, clearSelection, showRuler };
@@ -576,6 +577,7 @@ function ThreeViewport({ config, tiles, selectedIds, onSelectTile, clearSelectio
       buildTiles(current.config, current.tiles, current.selectedIds);
       buildRulers(current.config, current.showRuler);
     }
+    viewportApiRef.current = { rebuild };
 
     const gltfLoader = new GLTFLoader();
     Promise.all(Object.entries(GLTF_MODEL_BY_ID).map(async ([modelId, url]) => {
@@ -684,6 +686,7 @@ function ThreeViewport({ config, tiles, selectedIds, onSelectTile, clearSelectio
       renderer.domElement.removeEventListener("pointercancel", pointerUp);
       renderer.domElement.removeEventListener("wheel", wheel);
       renderer.domElement.removeEventListener("contextmenu", contextMenu);
+      viewportApiRef.current = null;
       clearGroup(tileRoot);
       clearGroup(rulerRoot);
       clearGroup(gridRoot);
@@ -693,37 +696,10 @@ function ThreeViewport({ config, tiles, selectedIds, onSelectTile, clearSelectio
   }, []);
 
   useEffect(() => {
-    const event = new CustomEvent("three-viewport-rebuild");
-    window.dispatchEvent(event);
-  }, [config, tiles, selectedIds, showRuler]);
-
-  useEffect(() => {
-    const handler = () => {};
-    window.addEventListener("three-viewport-rebuild", handler);
-    return () => window.removeEventListener("three-viewport-rebuild", handler);
-  }, []);
-
-  useEffect(() => {
-    const host = hostRef.current;
-    if (!host) return undefined;
-    const marker = host.dataset.rebuildMarker || "0";
-    host.dataset.rebuildMarker = String(Number(marker) + 1);
-    return undefined;
+    viewportApiRef.current?.rebuild();
   }, [config, tiles, selectedIds, showRuler]);
 
   return <div ref={hostRef} className="threeHost" />;
-}
-
-function ThreeViewportWrapper(props) {
-  const [refreshKey, setRefreshKey] = useState(0);
-  const latest = useRef(null);
-  latest.current = props;
-
-  useEffect(() => {
-    setRefreshKey((value) => value + 1);
-  }, [props.config, props.tiles, props.selectedIds, props.showRuler]);
-
-  return <ThreeViewport key={refreshKey} {...props} />;
 }
 
 function runLogicTests() {
@@ -878,7 +854,7 @@ function Viewport({ config, tiles, setTiles, selectedIds, setSelectedIds, active
     setActiveTool("select");
   }
 
-  return <main className="viewport"><Toolbar activeTool={activeTool} setActiveTool={setActiveTool} showLibrary={showLibrary} setShowLibrary={setShowLibrary} showRuler={showRuler} setShowRuler={setShowRuler} onGroup={groupSelected} onRotate={rotateSelected} onFlip={flipSelected} onPaint={paintSelected} /><LibraryPopup show={showLibrary} onApply={applyLibraryModel} /><div className="viewportBadge">{config.width * MODULE_MM} × {config.depth * MODULE_MM} × {config.height * MODULE_MM} mm</div><ThreeViewportWrapper config={config} tiles={tiles} selectedIds={selectedIds} onSelectTile={onSelectTile} clearSelection={clearSelection} showRuler={showRuler} /><div className="mouseHelp">Left drag: orbit · Wheel: zoom · Right drag: pan · Shift/Ctrl click: multi-select</div><div className="viewSwitch"><button className="active">Perspective</button><button>Orthographic</button></div></main>;
+  return <main className="viewport"><Toolbar activeTool={activeTool} setActiveTool={setActiveTool} showLibrary={showLibrary} setShowLibrary={setShowLibrary} showRuler={showRuler} setShowRuler={setShowRuler} onGroup={groupSelected} onRotate={rotateSelected} onFlip={flipSelected} onPaint={paintSelected} /><LibraryPopup show={showLibrary} onApply={applyLibraryModel} /><div className="viewportBadge">{config.width * MODULE_MM} × {config.depth * MODULE_MM} × {config.height * MODULE_MM} mm</div><ThreeViewport config={config} tiles={tiles} selectedIds={selectedIds} onSelectTile={onSelectTile} clearSelection={clearSelection} showRuler={showRuler} /><div className="mouseHelp">Left drag: orbit · Wheel: zoom · Right drag: pan · Shift/Ctrl click: multi-select</div><div className="viewSwitch"><button className="active">Perspective</button><button>Orthographic</button></div></main>;
 }
 
 export default function App() {
