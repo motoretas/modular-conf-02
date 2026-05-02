@@ -1010,9 +1010,17 @@ function MaterialPalette({ materialSlots, activeMaterialSlot, setActiveMaterialS
   return <section className="settingsBlock materialBlock"><div className="materialHeader"><div className="settingsTitle">Material</div><div className="materialActions"><button className="materialAction" onClick={removeMaterialSlot} disabled={materialSlots.length <= 1} title="Remove last material"><Minus className="buttonIcon" aria-hidden="true" /></button><button className="materialAction" onClick={addMaterialSlot} disabled={materialSlots.length >= 8} title="Add material"><Plus className="buttonIcon" aria-hidden="true" /></button><button className={cx("materialAction", allCollapsed ? "collapsed" : "")} onClick={toggleAllMaterials} title={allCollapsed ? "Expand all materials" : "Collapse all materials"}><ChevronDown className="buttonIcon" aria-hidden="true" /></button></div></div><div className="materialList">{materialSlots.map((slot) => { const active = slot.slot === activeMaterialSlot; const collapsed = Boolean(collapsedSlots[slot.slot]); const brandMaterials = getMaterialsForBrand(slot.brand); const colorOptions = getColorsForMaterial(slot.brand, slot.material); return <div className={cx("materialRole", active ? "active" : "", collapsed ? "collapsed" : "")} key={slot.roleKey} onClick={() => setActiveMaterialSlot(slot.slot)}><div className="materialRoleHeader"><button className="materialPreview" style={{ "--material-color": slot.color }} onClick={() => setActiveMaterialSlot(slot.slot)} title={makeMaterialLabel(slot)} /><span className="materialSummary">{makeMaterialLabel(slot)}</span><button className="materialCollapse" onClick={(event) => { event.stopPropagation(); toggleCollapsed(slot.slot); }} title={collapsed ? "Expand material" : "Collapse material"}><ChevronDown className="buttonIcon" aria-hidden="true" /></button></div>{collapsed ? null : <><div className="materialRoleBody"><div className="materialControls"><label><span>Brand</span><select value={slot.brand} onChange={(event) => updateMaterialSlot(slot.slot, { brand: event.target.value })}>{getMaterialBrands().map((brand) => <option key={brand}>{brand}</option>)}</select></label><label><span>Material</span><select value={slot.material} onChange={(event) => updateMaterialSlot(slot.slot, { material: event.target.value })}>{brandMaterials.map((material) => <option key={material}>{material}</option>)}</select></label><label><span>Color</span><select value={slot.colorName} onChange={(event) => updateMaterialSlot(slot.slot, { colorName: event.target.value })}>{colorOptions.map((entry) => <option key={entry.name}>{entry.name}</option>)}</select></label></div></div><div className="swatchRow">{colorOptions.map((entry) => <button key={entry.name} className={cx("swatch", entry.name === slot.colorName ? "active" : "")} style={{ "--swatch": entry.color }} onClick={(event) => { event.stopPropagation(); updateMaterialSlot(slot.slot, { colorName: entry.name }); }} title={entry.name} />)}</div></>}</div>; })}</div></section>;
 }
 
+function CollapsibleSettingsBlock({ title, collapsed, onToggle, children }) {
+  return <section className={cx("settingsBlock", "collapsibleBlock", collapsed ? "collapsed" : "")}><div className="settingsHeader"><div className="settingsTitle">{title}</div><button className={cx("materialAction", collapsed ? "collapsed" : "")} onClick={onToggle} title={collapsed ? `Expand ${title}` : `Collapse ${title}`}><ChevronDown className="buttonIcon" aria-hidden="true" /></button></div>{collapsed ? null : <div className="settingsBlockBody">{children}</div>}</section>;
+}
+
 function RightPanel({ config, setConfig, materialSlots, activeMaterialSlot, setActiveMaterialSlot, updateMaterialSlot, addMaterialSlot, removeMaterialSlot, selectionCount, onReset, onShare, onExport }) {
   const moduleHint = formatMeasure(MODULE_MM, config.units) + " module";
-  return <aside className="rightPanel"><div className="panelHeader inspectorHeader"><div><div className="panelTitle">Inspector</div><div className="panelSub">{selectionCount} selected tile{selectionCount === 1 ? "" : "s"}</div></div><button className="iconButton" onClick={onReset} title="Reset Configuration"><RotateCcw className="buttonIcon" aria-hidden="true" /></button></div><div className="panelScroll settingsScroll"><MaterialPalette materialSlots={materialSlots} activeMaterialSlot={activeMaterialSlot} setActiveMaterialSlot={setActiveMaterialSlot} updateMaterialSlot={updateMaterialSlot} addMaterialSlot={addMaterialSlot} removeMaterialSlot={removeMaterialSlot} /><section className="settingsBlock stack"><div className="settingsTitle">Grid</div><Stepper label="Width" value={config.width} min={1} max={10} hint={moduleHint} onChange={(value) => setConfig({ width: value })} /><Stepper label="Depth" value={config.depth} min={1} max={10} hint={moduleHint} onChange={(value) => setConfig({ depth: value })} /><Stepper label="Height" value={config.height} min={1} max={8} hint={moduleHint} onChange={(value) => setConfig({ height: value })} /><div className="sizeBox">Size: <b>{formatConfigSize(config)}</b></div></section><section className="settingsBlock stack"><div className="settingsTitle">Walls</div><Toggle label="Back Wall" value={config.backWall} onChange={(value) => setConfig({ backWall: value })} /><Toggle label="Left Wall" value={config.leftWall} onChange={(value) => setConfig({ leftWall: value })} /><Toggle label="Right Wall" value={config.rightWall} onChange={(value) => setConfig({ rightWall: value })} /></section></div><div className="panelFooter twoButtons"><button className="panelButton" onClick={onShare}><Share2 className="buttonIcon" aria-hidden="true" />Share</button><button className="panelButton primary" onClick={onExport}><Download className="buttonIcon" aria-hidden="true" />Export</button></div></aside>;
+  const [collapsedBlocks, setCollapsedBlocks] = useState({});
+  function toggleBlock(blockKey) {
+    setCollapsedBlocks((previous) => ({ ...previous, [blockKey]: !previous[blockKey] }));
+  }
+  return <aside className="rightPanel"><div className="panelHeader inspectorHeader"><div><div className="panelTitle">Inspector</div><div className="panelSub">{selectionCount} selected tile{selectionCount === 1 ? "" : "s"}</div></div><button className="iconButton" onClick={onReset} title="Reset Configuration"><RotateCcw className="buttonIcon" aria-hidden="true" /></button></div><div className="panelScroll settingsScroll"><MaterialPalette materialSlots={materialSlots} activeMaterialSlot={activeMaterialSlot} setActiveMaterialSlot={setActiveMaterialSlot} updateMaterialSlot={updateMaterialSlot} addMaterialSlot={addMaterialSlot} removeMaterialSlot={removeMaterialSlot} /><CollapsibleSettingsBlock title="Grid" collapsed={Boolean(collapsedBlocks.grid)} onToggle={() => toggleBlock("grid")}><Stepper label="Width" value={config.width} min={1} max={10} hint={moduleHint} onChange={(value) => setConfig({ width: value })} /><Stepper label="Depth" value={config.depth} min={1} max={10} hint={moduleHint} onChange={(value) => setConfig({ depth: value })} /><Stepper label="Height" value={config.height} min={1} max={8} hint={moduleHint} onChange={(value) => setConfig({ height: value })} /><div className="sizeBox">Size: <b>{formatConfigSize(config)}</b></div></CollapsibleSettingsBlock><CollapsibleSettingsBlock title="Walls" collapsed={Boolean(collapsedBlocks.walls)} onToggle={() => toggleBlock("walls")}><Toggle label="Back Wall" value={config.backWall} onChange={(value) => setConfig({ backWall: value })} /><Toggle label="Left Wall" value={config.leftWall} onChange={(value) => setConfig({ leftWall: value })} /><Toggle label="Right Wall" value={config.rightWall} onChange={(value) => setConfig({ rightWall: value })} /></CollapsibleSettingsBlock></div><div className="panelFooter twoButtons"><button className="panelButton" onClick={onShare}><Share2 className="buttonIcon" aria-hidden="true" />Share</button><button className="panelButton primary" onClick={onExport}><Download className="buttonIcon" aria-hidden="true" />Export</button></div></aside>;
 }
 
 function Toolbar({ activeTool, setActiveTool, selectedCount, showRuler, setShowRuler, showGrid, setShowGrid, onGroup, onRotate, onFlip, onPaint }) {
@@ -1262,7 +1270,7 @@ export default function App() {
     .panelButton:hover, .iconButton:hover { border-color: #e8e5df; color: #111111; background: #f2f2f2; }
     .leftPanel, .rightPanel { position: absolute; z-index: 20; top: 22px; bottom: 22px; min-height: 0; display: flex; flex-direction: column; border: 1px solid #e8e5df; border-radius: var(--frame-radius); background: var(--panel); -webkit-backdrop-filter: blur(18px) saturate(118%); backdrop-filter: blur(18px) saturate(118%); box-shadow: 0 28px 72px rgba(33,35,38,0.11), 0 2px 8px rgba(33,35,38,0.04), inset 0 1px 0 rgba(255,255,255,0.92); overflow: hidden; }
     .leftPanel { left: 42px; width: 348px; }
-    .rightPanel { right: 42px; width: 322px; }
+    .rightPanel { right: 42px; width: 322px; bottom: auto; max-height: calc(100% - 44px); }
     .panelHeader { padding: 18px; border-bottom: 1px solid rgba(45,47,51,0.07); background: rgba(255,255,255,0.42); }
     .panelTitle { font-size: 14px; font-weight: 700; letter-spacing: -0.02em; }
     .leftPanel .panelTitle { font-size: 30px; line-height: 1; font-weight: 800; letter-spacing: -0.045em; }
@@ -1275,6 +1283,7 @@ export default function App() {
     .tabs .tab:last-child { font-weight: 600; }
     .tab.active { background: #111111; border-color: #111111; color: #ffffff; }
     .panelScroll { flex: 1; min-height: 0; overflow: auto; padding: 12px; }
+    .rightPanel .panelScroll { flex: 0 1 auto; }
     .panelScroll::-webkit-scrollbar { width: 8px; }
     .panelScroll::-webkit-scrollbar-track { background: transparent; }
     .panelScroll::-webkit-scrollbar-thumb { background: rgba(38,40,44,0.18); border-radius: 99px; }
@@ -1314,6 +1323,10 @@ export default function App() {
     .settingsBlock { border: 1px solid var(--border); border-radius: 16px; background: rgba(255,255,255,0.58); padding: 13px; }
     .settingsBlock.stack { display: flex; flex-direction: column; gap: 10px; }
     .settingsTitle { color: #111111; text-transform: none; letter-spacing: -0.01em; font-size: 12px; font-weight: 800; margin-bottom: 10px; }
+    .settingsHeader { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #e8e5df; }
+    .settingsHeader .settingsTitle { margin-bottom: 0; font-size: 13px; }
+    .collapsibleBlock.collapsed .settingsHeader { margin-bottom: 0; padding-bottom: 0; border-bottom: 0; }
+    .settingsBlockBody { display: flex; flex-direction: column; gap: 10px; }
     .label { display: block; color: #555555; font-size: 12px; font-weight: 600; margin-bottom: 5px; }
     .label.withTop { margin-top: 10px; }
     select { width: 100%; height: 33px; border: 1px solid #e8e5df; border-radius: 11px; background: #ffffff; color: #111111; padding: 0 9px; font-size: 13px; font-weight: 600; letter-spacing: -0.01em; outline: none; }
@@ -1321,18 +1334,18 @@ export default function App() {
     .materialHeader { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #e8e5df; }
     .materialHeader .settingsTitle { margin-bottom: 0; font-size: 13px; }
     .materialActions { display: flex; align-items: center; gap: 6px; }
-    .materialAction { width: 28px; height: 28px; border: 1px solid #e8e5df; border-radius: 9px; background: #ffffff; color: #555555; display: grid; place-items: center; }
-    .materialAction .buttonIcon, .materialCollapse .buttonIcon { width: 14px; height: 14px; }
+    .materialAction { width: 24px; height: 24px; border: 1px solid #e8e5df; border-radius: 8px; background: #ffffff; color: #555555; display: grid; place-items: center; }
+    .materialAction .buttonIcon, .materialCollapse .buttonIcon { width: 12px; height: 12px; }
     .materialAction:hover { background: #f2f2f2; color: #111111; }
     .materialAction:disabled { opacity: 0.38; cursor: default; }
     .materialAction:disabled:hover { background: #ffffff; color: #555555; }
     .materialAction.collapsed .buttonIcon { transform: rotate(-90deg); }
-    .materialCollapse { width: 28px; height: 28px; border: 1px solid #e8e5df; border-radius: 9px; background: #ffffff; color: #555555; display: grid; place-items: center; flex: 0 0 auto; }
+    .materialCollapse { width: 24px; height: 24px; border: 1px solid #e8e5df; border-radius: 8px; background: #ffffff; color: #555555; display: grid; place-items: center; flex: 0 0 auto; }
     .materialRole.collapsed .materialCollapse .buttonIcon { transform: rotate(-90deg); }
     .materialList { display: flex; flex-direction: column; gap: 12px; }
     .materialRole { border-bottom: 1px solid #e8e5df; padding-bottom: 12px; }
     .materialRole:last-child { border-bottom: 0; padding-bottom: 0; }
-    .materialRoleHeader { display: grid; grid-template-columns: 32px minmax(0, 1fr) 28px; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .materialRoleHeader { display: grid; grid-template-columns: 32px minmax(0, 1fr) 24px; align-items: center; gap: 8px; margin-bottom: 12px; }
     .materialRole.collapsed .materialRoleHeader { margin-bottom: 0; }
     .materialSummary { min-width: 0; color: #555555; font-size: 12px; line-height: 1.2; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .materialRoleBody { display: block; padding-left: 0; }
@@ -1341,7 +1354,7 @@ export default function App() {
     .materialControls { display: grid; gap: 6px; min-width: 0; }
     .materialControls label { display: grid; grid-template-columns: 68px minmax(0, 1fr); align-items: center; gap: 8px; }
     .materialControls label span { color: #555555; font-size: 12px; font-weight: 600; letter-spacing: -0.01em; }
-    .materialControls select { height: 28px; min-width: 0; border-radius: 9px; background: #ffffff; color: #777777; font-size: 11px; font-weight: 400; padding: 0 9px; }
+    .materialControls select { height: 26px; min-width: 0; border-radius: 8px; background: #ffffff; color: #777777; font-size: 11px; font-weight: 400; padding: 0 8px; }
     .swatchRow { display: flex; flex-wrap: wrap; gap: 12px; margin-left: 0; margin-top: 14px; }
     .swatch { width: 24px; height: 24px; border: 1px solid rgba(17,17,17,0.08); border-radius: 999px; background: var(--swatch); box-shadow: inset 0 1px 0 rgba(255,255,255,0.42); }
     .swatch.active { outline: 2px solid #111111; outline-offset: 3px; }
@@ -1351,14 +1364,16 @@ export default function App() {
     .stepperRow, .toggleRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
     .fieldTitle, .toggleRow span { font-size: 12px; font-weight: 600; color: #555555; letter-spacing: -0.01em; }
     .fieldHint { margin-top: 2px; color: #777777; font-size: 11px; font-weight: 400; }
-    .stepper { height: 30px; display: grid; grid-template-columns: 28px 44px 28px; border: 1px solid #e8e5df; border-radius: 10px; overflow: hidden; background: #ffffff; }
+    .stepper { height: 26px; display: grid; grid-template-columns: 24px 32px 24px; border: 1px solid #e8e5df; border-radius: 8px; overflow: hidden; background: #ffffff; }
     .stepper button { border: 0; background: transparent; color: #6f6f6f; }
     .stepper button:hover { color: #111111; background: #f2f2f2; }
-    .stepper span { display: grid; place-items: center; border-left: 1px solid #e8e5df; border-right: 1px solid #e8e5df; font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
-    .toggle { width: 64px; height: 29px; border: 1px solid #e8e5df; border-radius: 10px; background: #ffffff; color: #6f6f6f; font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
-    .toggle.on { background: #111111; border-color: #111111; color: #ffffff; }
-    .sizeBox { border: 1px solid #e8e5df; border-radius: 12px; background: #ffffff; padding: 9px; color: #777777; font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
-    .sizeBox b { color: var(--measure); font-weight: 600; }
+    .stepper span { display: grid; place-items: center; border-left: 1px solid #e8e5df; border-right: 1px solid #e8e5df; color: #777777; font-size: 11px; font-weight: 400; letter-spacing: -0.01em; }
+    .toggle { position: relative; width: 38px; height: 20px; border: 1px solid #e8e5df; border-radius: 999px; background: #ffffff; color: transparent; font-size: 0; }
+    .toggle::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 999px; background: #d8d5cf; transition: transform 150ms ease, background 150ms ease; }
+    .toggle.on { background: #111111; border-color: #111111; color: transparent; }
+    .toggle.on::after { transform: translateX(18px); background: #ffffff; }
+    .sizeBox { color: #555555; font-size: 12px; font-weight: 600; letter-spacing: -0.01em; }
+    .sizeBox b { color: #555555; font-weight: 600; }
     .viewport { position: absolute; z-index: 0; inset: 0; min-width: 0; overflow: hidden; background: radial-gradient(circle at 52% 50%, #ffffff 0 18%, #f7f5f1 46%, #eee9df 100%); box-shadow: inset 0 100px 180px rgba(255,255,255,0.58), inset 0 -120px 180px rgba(180,171,157,0.2); }
     .viewport::before { content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; background: linear-gradient(90deg, rgba(255,255,255,0.62) 0%, rgba(255,255,255,0.08) 42%, rgba(182,173,159,0.12) 100%); }
     .threeHost { position: absolute; inset: 0; z-index: 1; }
