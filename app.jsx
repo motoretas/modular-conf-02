@@ -927,7 +927,7 @@ if (typeof window !== "undefined" && !window.__MODULAR_DIORAMA_THREE_VANILLA_TES
   runLogicTests();
 }
 
-function MiniIcon({ Icon }) { return <Icon className="miniIcon" aria-hidden="true" strokeWidth={2} />; }
+function MiniIcon({ Icon }) { return <Icon className="miniIcon" aria-hidden="true" />; }
 
 function TopSelect({ label, value, onChange, children }) {
   return <label className="topSelect"><span className="topSelectLabel">{label}</span><select value={value} onChange={(event) => onChange(event.target.value)}>{children}</select><ChevronDown className="topIcon" aria-hidden="true" /></label>;
@@ -1196,7 +1196,7 @@ export default function App() {
 
   return <div className="appShell"><style>{`
     @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
-    :root { --bg: #f7f6f2; --viewport: #fbfaf7; --panel: rgba(255,255,255,0.88); --panel2: #ffffff; --border: #e8e5df; --text: #111111; --muted: #777777; --active: #111111; --soft: #f2f2f2; --measure: #111111; --frame-radius: 18px; --control-height: 36px; }
+    :root { --bg: #f7f6f2; --viewport: #fbfaf7; --panel: rgba(255,255,255,0.88); --panel2: #ffffff; --border: #e8e5df; --text: #111111; --muted: #777777; --active: #111111; --soft: #f2f2f2; --measure: #111111; --frame-radius: 18px; --control-height: 36px; --icon-button-size: 36px; --icon-glyph-size: 18px; --icon-stroke-width: 2.2; }
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--bg); font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; line-height: 1.35; font-weight: 400; color: #111111; }
     button, select, input { font: inherit; }
@@ -1215,19 +1215,19 @@ export default function App() {
     .topSelect select { width: auto; min-width: 46px; height: 100%; border: 0; border-radius: 0; background: transparent; color: #111111; padding: 0 3px; font-size: 12px; font-weight: 700; letter-spacing: -0.01em; outline: none; appearance: none; cursor: pointer; }
     .topSelect .topIcon { width: 14px; height: 14px; color: #6f6f6f; }
     .topSelect:hover, .roundAction:hover, .userPill:hover, .railButton:hover, .toolButton:hover, .panelButton:hover, .iconButton:hover, .tab:hover { background: #f2f2f2; color: #111111; }
-    .roundAction { width: var(--control-height); height: var(--control-height); border-radius: var(--frame-radius); display: grid; place-items: center; color: #6f6f6f; background: #ffffff; }
+    .roundAction { width: var(--icon-button-size); height: var(--icon-button-size); border-radius: var(--frame-radius); display: grid; place-items: center; color: #6f6f6f; background: #ffffff; }
     .roundAction.active { background: #111111; border-color: #111111; color: #ffffff; }
     .userPill { height: var(--control-height); border-radius: var(--frame-radius); padding: 0 12px 0 6px; display: inline-flex; align-items: center; gap: 9px; color: #111111; }
     .userPill span:not(.avatar) { display: grid; gap: 1px; line-height: 1.05; }
     .userPill b { font-size: 12px; font-weight: 700; letter-spacing: -0.02em; }
     .userPill small { color: #777777; font-size: 10px; font-weight: 400; }
-    .avatar { width: 26px; height: 26px; border-radius: 10px; display: grid; place-items: center; background: #111111; color: #ffffff; }
-    .topIcon { width: 15px; height: 15px; stroke-width: 2.2; }
+    .avatar { width: var(--icon-button-size); height: var(--icon-button-size); margin-left: -6px; border-radius: var(--frame-radius); display: grid; place-items: center; background: #111111; color: #ffffff; }
+    .topIcon { width: var(--icon-glyph-size); height: var(--icon-glyph-size); stroke-width: var(--icon-stroke-width); }
     .mainLayout { position: relative; flex: 1; min-height: 0; display: block; overflow: hidden; }
     .sideRail { position: absolute; z-index: 28; left: 414px; top: 50%; transform: translateY(-50%); display: grid; gap: 18px; }
-    .railButton { width: 48px; height: 48px; border-radius: var(--frame-radius); border: 1px solid #e8e5df; background: #ffffff; color: #6f6f6f; display: grid; place-items: center; box-shadow: 0 14px 35px rgba(33,35,38,0.08); }
+    .railButton { width: var(--icon-button-size); height: var(--icon-button-size); border-radius: var(--frame-radius); border: 1px solid #e8e5df; background: #ffffff; color: #6f6f6f; display: grid; place-items: center; box-shadow: 0 14px 35px rgba(33,35,38,0.08); }
     .railButton.active { background: #111111; border-color: #111111; color: #ffffff; }
-    .railIcon { width: 19px; height: 19px; }
+    .railIcon { width: var(--icon-glyph-size); height: var(--icon-glyph-size); stroke-width: var(--icon-stroke-width); }
     .panelButton:hover, .iconButton:hover { border-color: #e8e5df; color: #111111; background: #f2f2f2; }
     .leftPanel, .rightPanel { position: absolute; z-index: 20; top: 22px; bottom: 22px; min-height: 0; display: flex; flex-direction: column; border: 1px solid #e8e5df; border-radius: var(--frame-radius); background: var(--panel); -webkit-backdrop-filter: blur(18px) saturate(118%); backdrop-filter: blur(18px) saturate(118%); box-shadow: 0 28px 72px rgba(33,35,38,0.11), 0 2px 8px rgba(33,35,38,0.04), inset 0 1px 0 rgba(255,255,255,0.92); overflow: hidden; }
     .leftPanel { left: 42px; width: 348px; }
@@ -1276,9 +1276,9 @@ export default function App() {
     .twoButtons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .panelButton, .iconButton { border: 1px solid #e8e5df; border-radius: 13px; background: #ffffff; color: #111111; font-size: 13px; font-weight: 700; min-height: 40px; letter-spacing: -0.01em; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
     .panelButton.primary { background: #111111; border-color: #111111; color: #ffffff; }
-    .buttonIcon { width: 15px; height: 15px; stroke-width: 2.3; }
+    .buttonIcon { width: var(--icon-glyph-size); height: var(--icon-glyph-size); stroke-width: var(--icon-stroke-width); }
     .inspectorHeader { display: flex; align-items: center; justify-content: space-between; }
-    .iconButton { width: 31px; height: 31px; font-size: 15px; }
+    .iconButton { width: var(--icon-button-size); height: var(--icon-button-size); min-height: 0; border-radius: var(--frame-radius); padding: 0; font-size: 15px; }
     .settingsScroll { display: flex; flex-direction: column; gap: 12px; }
     .settingsBlock { border: 1px solid var(--border); border-radius: 16px; background: rgba(255,255,255,0.58); padding: 13px; }
     .settingsBlock.stack { display: flex; flex-direction: column; gap: 10px; }
@@ -1289,17 +1289,17 @@ export default function App() {
     .materialBlock { padding: 13px; }
     .materialHeader { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #e8e5df; }
     .materialHeader .settingsTitle { margin-bottom: 0; font-size: 13px; }
-    .materialCollapse { width: 36px; height: 36px; border: 1px solid #e8e5df; border-radius: 12px; background: #ffffff; color: #555555; display: grid; place-items: center; flex: 0 0 auto; }
+    .materialCollapse { width: var(--icon-button-size); height: var(--icon-button-size); border: 1px solid #e8e5df; border-radius: 12px; background: #ffffff; color: #555555; display: grid; place-items: center; flex: 0 0 auto; }
     .materialRole.collapsed .materialCollapse .buttonIcon { transform: rotate(-90deg); }
     .materialList { display: flex; flex-direction: column; gap: 12px; }
     .materialRole { border-bottom: 1px solid #e8e5df; padding-bottom: 12px; }
     .materialRole:last-child { border-bottom: 0; padding-bottom: 0; }
-    .materialRoleHeader { display: grid; grid-template-columns: 36px 36px minmax(0, 1fr) 36px; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .materialRoleHeader { display: grid; grid-template-columns: var(--icon-button-size) var(--icon-button-size) minmax(0, 1fr) var(--icon-button-size); align-items: center; gap: 8px; margin-bottom: 12px; }
     .materialRole.collapsed .materialRoleHeader { margin-bottom: 0; }
-    .materialIndex { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; font-size: 15px; font-weight: 800; letter-spacing: -0.02em; box-shadow: inset 0 1px 0 rgba(255,255,255,0.55); }
+    .materialIndex { width: var(--icon-button-size); height: var(--icon-button-size); border-radius: 12px; display: grid; place-items: center; font-size: 15px; font-weight: 800; letter-spacing: -0.02em; box-shadow: inset 0 1px 0 rgba(255,255,255,0.55); }
     .materialSummary { min-width: 0; color: #111111; font-size: 13px; line-height: 1.08; font-weight: 800; letter-spacing: -0.025em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .materialRoleBody { display: block; padding-left: 0; }
-    .materialPreview { width: 36px; height: 36px; border: 1px solid rgba(17,17,17,0.1); border-radius: 12px; background: radial-gradient(circle at 24% 18%, rgba(255,255,255,0.34), transparent 28%), linear-gradient(145deg, color-mix(in srgb, var(--material-color), #ffffff 8%), color-mix(in srgb, var(--material-color), #000000 12%)); box-shadow: 0 10px 20px rgba(33,35,38,0.1), inset 0 1px 0 rgba(255,255,255,0.32); }
+    .materialPreview { width: var(--icon-button-size); height: var(--icon-button-size); border: 1px solid rgba(17,17,17,0.1); border-radius: 12px; background: radial-gradient(circle at 24% 18%, rgba(255,255,255,0.34), transparent 28%), linear-gradient(145deg, color-mix(in srgb, var(--material-color), #ffffff 8%), color-mix(in srgb, var(--material-color), #000000 12%)); box-shadow: 0 10px 20px rgba(33,35,38,0.1), inset 0 1px 0 rgba(255,255,255,0.32); }
     .materialControls { display: grid; gap: 6px; min-width: 0; }
     .materialControls label { display: grid; grid-template-columns: 68px minmax(0, 1fr); align-items: center; gap: 8px; }
     .materialControls label span { color: #555555; font-size: 12px; font-weight: 800; letter-spacing: -0.015em; }
@@ -1327,14 +1327,14 @@ export default function App() {
     .threeHost { position: absolute; inset: 0; z-index: 1; }
     .threeHost canvas { display: block; width: 100%; height: 100%; }
     .floatingToolbar { position: absolute; z-index: 30; top: 22px; left: 50%; transform: translateX(-50%); display: flex; gap: 7px; padding: 8px; border: 1px solid #e8e5df; border-radius: var(--frame-radius); background: rgba(255,255,255,0.78); -webkit-backdrop-filter: blur(18px) saturate(125%); backdrop-filter: blur(18px) saturate(125%); box-shadow: 0 18px 45px rgba(33,35,38,0.1), inset 0 1px 0 rgba(255,255,255,0.86); }
-    .toolButton { width: 36px; height: 36px; border: 1px solid #e8e5df; border-radius: 11px; background: #ffffff; color: #6f6f6f; display: grid; place-items: center; }
+    .toolButton { width: var(--icon-button-size); height: var(--icon-button-size); border: 1px solid #e8e5df; border-radius: 11px; background: #ffffff; color: #6f6f6f; display: grid; place-items: center; }
     .toolButton.active { background: #111111; border-color: #111111; color: #ffffff; }
     .toolButton.pulse { animation: toolPulse 180ms ease; }
     @keyframes toolPulse {
       0%, 100% { background: #ffffff; border-color: #e8e5df; color: #6f6f6f; }
       48% { background: #111111; border-color: #111111; color: #ffffff; }
     }
-    .miniIcon { width: 16px; height: 16px; }
+    .miniIcon { width: var(--icon-glyph-size); height: var(--icon-glyph-size); stroke-width: var(--icon-stroke-width); }
     .viewportBadge { position: absolute; z-index: 10; right: 374px; top: 22px; height: var(--control-height); display: inline-flex; align-items: center; border: 1px solid #e8e5df; border-radius: var(--frame-radius); background: rgba(255,255,255,0.68); color: #111111; font-size: 12px; font-weight: 700; letter-spacing: -0.015em; padding: 0 14px; pointer-events: none; backdrop-filter: blur(14px); }
     @media (max-width: 1180px) {
       .appTopBar { grid-template-columns: 150px 1fr auto; gap: 14px; padding: 0 20px; }
