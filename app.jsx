@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { BarChart3, Bell, ChevronDown, ClipboardList, Download, FlipHorizontal, Grid3X3, Group, Home, Library, Map, MessageCircle, Minus, MousePointer2, PaintBucket, Pencil, Plus, RotateCcw, RotateCw, Ruler, Share2, UserRound, Users } from "lucide-react";
+import { BarChart3, Bell, ChevronDown, ClipboardList, Download, FlipHorizontal, Grid3X3, Group, Home, Map, MessageCircle, MousePointer2, PaintBucket, RotateCcw, RotateCw, Ruler, Search, Share2, UserRound, Users } from "lucide-react";
 
 const MODULE_MM = 50;
 const UNIT = 0.5;
@@ -14,18 +14,72 @@ const UNIT_OPTIONS = [
   { value: "mm", label: "mm" },
   { value: "in", label: "in" }
 ];
-const MATERIAL_PRESETS = [
-  { id: "ego_pla_black", label: "Ego PLA - Negro", color: "#111111" },
-  { id: "ego_pla_pink", label: "Ego PLA - Rosa", color: "#f2a4b9" },
-  { id: "ego_pla_white", label: "Ego PLA - Blanco", color: "#f7f3eb" },
-  { id: "anycubic_pla_teal", label: "Anycubic PLA - Teal", color: "#00a99d" },
-  { id: "anycubic_pla_gray", label: "Anycubic PLA - Gris", color: "#767676" }
+const MATERIAL_LIBRARY = {
+  "Bambu Lab": {
+    "PLA Matte": [
+      { name: "Dark Grey", color: "#3a3a3a" },
+      { name: "Light Grey", color: "#b8b8b2" },
+      { name: "Black", color: "#111111" },
+      { name: "Ash Grey", color: "#6f6f6a" },
+      { name: "Charcoal", color: "#4d4d49" },
+      { name: "Warm Grey", color: "#96928b" },
+      { name: "Ivory", color: "#d8cfbd" }
+    ],
+    "PLA Basic": [
+      { name: "Black", color: "#101010" },
+      { name: "White", color: "#f3f1ea" },
+      { name: "Silver", color: "#b9b9b4" },
+      { name: "Jade White", color: "#e9e5d8" },
+      { name: "Red", color: "#c9343a" },
+      { name: "Cyan", color: "#1aa6b7" }
+    ],
+    "PETG HF": [
+      { name: "Graphite", color: "#2f3131" },
+      { name: "Grey", color: "#8d8f8b" },
+      { name: "Natural", color: "#ddd8c9" },
+      { name: "Black", color: "#121212" }
+    ]
+  },
+  Anycubic: {
+    PLA: [
+      { name: "Black", color: "#111111" },
+      { name: "Grey", color: "#767676" },
+      { name: "Teal", color: "#00a99d" },
+      { name: "White", color: "#f4f1ea" }
+    ],
+    "PLA Matte": [
+      { name: "Stone Grey", color: "#8c8981" },
+      { name: "Mist Grey", color: "#bbb8b0" },
+      { name: "Deep Black", color: "#161616" }
+    ],
+    PETG: [
+      { name: "Black", color: "#111111" },
+      { name: "Clear Smoke", color: "#777b7b" },
+      { name: "White", color: "#ebe8df" }
+    ]
+  },
+  Ego: {
+    PLA: [
+      { name: "Negro", color: "#111111" },
+      { name: "Rosa", color: "#f2a4b9" },
+      { name: "Blanco", color: "#f7f3eb" },
+      { name: "Gris", color: "#8a8a86" }
+    ],
+    PETG: [
+      { name: "Carbon", color: "#20201f" },
+      { name: "Natural", color: "#d8d0be" }
+    ]
+  }
+};
+const MATERIAL_ROLES = [
+  { slot: 1, roleKey: "floor", role: "Floor", accent: "#d7d7d2" },
+  { slot: 2, roleKey: "walls", role: "Walls", accent: "#f49ab5" },
+  { slot: 3, roleKey: "details", role: "Details", accent: "#25bfb7" }
 ];
-const CUSTOM_MATERIAL_ID = "custom";
 const DEFAULT_MATERIAL_SLOTS = [
-  { slot: 1, presetId: "ego_pla_black", label: "Ego PLA - Negro", color: "#111111" },
-  { slot: 2, presetId: "ego_pla_pink", label: "Ego PLA - Rosa", color: "#f2a4b9" },
-  { slot: 3, presetId: "anycubic_pla_teal", label: "Anycubic PLA - Teal", color: "#00a99d" }
+  { ...MATERIAL_ROLES[0], brand: "Bambu Lab", material: "PLA Matte", colorName: "Dark Grey", color: "#3a3a3a" },
+  { ...MATERIAL_ROLES[1], brand: "Bambu Lab", material: "PLA Matte", colorName: "Light Grey", color: "#b8b8b2" },
+  { ...MATERIAL_ROLES[2], brand: "Bambu Lab", material: "PLA Matte", colorName: "Black", color: "#111111" }
 ];
 
 const CATALOG = [
@@ -84,7 +138,6 @@ const LIBRARY_ITEMS = [
 ];
 const TOOLBAR = [
   { key: "select", label: "Select", Icon: MousePointer2 },
-  { key: "library", label: "Library", Icon: Library },
   { key: "group", label: "Group / Ungroup", Icon: Group },
   { key: "rotate", label: "Rotate", Icon: RotateCw },
   { key: "flip", label: "Flip", Icon: FlipHorizontal },
@@ -95,11 +148,11 @@ const TOOLBAR = [
 
 function cx() { return Array.from(arguments).filter(Boolean).join(" "); }
 function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
-function getMaterialPreset(presetId) { return MATERIAL_PRESETS.find((preset) => preset.id === presetId) || null; }
-function makeMaterialSlot(slot) {
-  const preset = MATERIAL_PRESETS[(slot - 1) % MATERIAL_PRESETS.length];
-  return { slot, presetId: preset.id, label: preset.label, color: preset.color };
-}
+function getMaterialBrands() { return Object.keys(MATERIAL_LIBRARY); }
+function getMaterialsForBrand(brand) { return Object.keys(MATERIAL_LIBRARY[brand] || {}); }
+function getColorsForMaterial(brand, material) { return MATERIAL_LIBRARY[brand] && MATERIAL_LIBRARY[brand][material] ? MATERIAL_LIBRARY[brand][material] : []; }
+function getMaterialColor(brand, material, colorName) { return getColorsForMaterial(brand, material).find((entry) => entry.name === colorName) || getColorsForMaterial(brand, material)[0] || { name: "Black", color: "#111111" }; }
+function makeMaterialLabel(slot) { return `${slot.colorName} ${slot.material} ${slot.brand}`; }
 function getReadableTextColor(hexColor) {
   const value = String(hexColor || "#111111").replace("#", "");
   const full = value.length === 3 ? value.split("").map((char) => char + char).join("") : value.padEnd(6, "0").slice(0, 6);
@@ -881,7 +934,7 @@ function TopSelect({ label, value, onChange, children }) {
 }
 
 function AppTopBar({ config, setConfig, activeTab, setActiveTab }) {
-  return <header className="appTopBar"><div className="brandLockup"><span className="brandMark" /><span>Modular</span></div><div className="topFilterRow"><TopSelect label="Layout" value={activeTab} onChange={setActiveTab}><option value="print">Build</option><option value="assets">Assets</option></TopSelect><TopSelect label="Theme" value={config.theme} onChange={(theme) => setConfig({ theme })}>{THEME_OPTIONS.map((theme) => <option key={theme}>{theme}</option>)}</TopSelect><TopSelect label="Scale" value={config.scale} onChange={(scale) => setConfig({ scale })}>{SCALE_OPTIONS.map((scale) => <option key={scale}>{scale}</option>)}</TopSelect><TopSelect label="Units" value={config.units} onChange={(units) => setConfig({ units })}>{UNIT_OPTIONS.map((unit) => <option key={unit.value} value={unit.value}>{unit.label}</option>)}</TopSelect></div><div className="topProfileRow"><button className="roundAction"><MessageCircle className="topIcon" aria-hidden="true" /></button><button className="roundAction"><Bell className="topIcon" aria-hidden="true" /></button><button className="userPill"><span className="avatar"><UserRound className="topIcon" aria-hidden="true" /></span><span><b>Builder</b><small>{config.scale}</small></span><ChevronDown className="topIcon" aria-hidden="true" /></button></div></header>;
+  return <header className="appTopBar"><div className="brandLockup"><span className="brandMark" /><span>Modular</span></div><div className="topFilterRow"><TopSelect label="Layout" value={activeTab} onChange={setActiveTab}><option value="library">Library</option><option value="print">Build</option><option value="assets">Assets</option></TopSelect><TopSelect label="Theme" value={config.theme} onChange={(theme) => setConfig({ theme })}>{THEME_OPTIONS.map((theme) => <option key={theme}>{theme}</option>)}</TopSelect><TopSelect label="Scale" value={config.scale} onChange={(scale) => setConfig({ scale })}>{SCALE_OPTIONS.map((scale) => <option key={scale}>{scale}</option>)}</TopSelect><TopSelect label="Units" value={config.units} onChange={(units) => setConfig({ units })}>{UNIT_OPTIONS.map((unit) => <option key={unit.value} value={unit.value}>{unit.label}</option>)}</TopSelect></div><div className="topProfileRow"><button className="roundAction"><MessageCircle className="topIcon" aria-hidden="true" /></button><button className="roundAction"><Bell className="topIcon" aria-hidden="true" /></button><button className="userPill"><span className="avatar"><UserRound className="topIcon" aria-hidden="true" /></span><span><b>Builder</b><small>{config.scale}</small></span><ChevronDown className="topIcon" aria-hidden="true" /></button></div></header>;
 }
 
 function SideRail() {
@@ -896,9 +949,35 @@ function SideRail() {
 
 function Tag({ children, active }) { return <span className={active ? "tag active" : "tag"}>{children}</span>; }
 
-function LeftPanel({ activeTab, setActiveTab, printList, onCopy, onDownload }) {
+function LibraryBrowser({ onApply }) {
+  const [query, setQuery] = useState("");
+  const normalizedQuery = query.trim().toLowerCase();
+  const items = LIBRARY_ITEMS.map((item) => {
+    const modelId = getModelForLibraryAction(item.key);
+    const asset = modelId ? ASSET_BY_ID[modelId] : null;
+    const tokens = [
+      item.label,
+      item.key,
+      item.family,
+      asset ? asset.name : "",
+      asset ? asset.category : "",
+      asset ? asset.variant : "",
+      asset ? asset.file_stl : "",
+      asset ? asset.file_3mf : "",
+      asset ? asset.print_orientation : "",
+      asset && asset.supports ? "supports" : "no supports",
+      asset && asset.bed_texture_finish ? "bed texture finish" : "",
+      asset ? asset.notes : ""
+    ].join(" ").toLowerCase();
+    return { ...item, asset, tokens };
+  }).filter((item) => !normalizedQuery || item.tokens.includes(normalizedQuery));
+
+  return <div className="libraryPanel"><label className="librarySearch"><Search className="searchIcon" aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by name, supports, flat..." /></label><div className="libraryGrid">{items.map((item) => <button className="libraryCard" key={item.key} onClick={() => onApply(item.key)} title={item.asset ? item.asset.name : item.label}><span className="libraryThumb"><img src={item.iconSrc} alt="" /></span><span className="libraryCardName">{item.label}</span><span className="libraryCardMeta">{item.asset ? item.asset.print_orientation : item.family}</span><span className="tagRow"><Tag>{item.family}</Tag>{item.asset ? <Tag active={!item.asset.supports}>{item.asset.supports ? "Supports" : "No supports"}</Tag> : null}</span></button>)}</div>{items.length === 0 ? <div className="emptyLine">No parts match that search.</div> : null}</div>;
+}
+
+function LeftPanel({ activeTab, setActiveTab, printList, onApplyLibraryItem, onCopy, onDownload }) {
   const labels = { floor: "Floors", wall: "Walls", connector: "Connectors", trim: "Trims", accessory: "Accessories" };
-  return <aside className="leftPanel"><div className="panelHeader"><div className="panelTitle">Diorama Configurator</div><div className="panelSub">Printable modular 3D scene builder</div><div className="tabs"><button className={activeTab === "print" ? "tab active" : "tab"} onClick={() => setActiveTab("print")}>Build</button><button className={activeTab === "assets" ? "tab active" : "tab"} onClick={() => setActiveTab("assets")}>Assets</button></div></div><div className="panelScroll">{activeTab === "print" ? Object.keys(labels).map((category) => { const items = printList[category] || []; const total = items.reduce((sum, item) => sum + item.quantity, 0); return <section className="printGroup" key={category}><div className="groupHeader"><span>{labels[category]}</span><span>{total} pcs</span></div><div className="groupBody">{items.length === 0 ? <div className="emptyLine">No parts required.</div> : null}{items.map((entry) => <div className="partCard" key={entry.asset.id}><div className="partName"><b>{entry.quantity}×</b> {entry.asset.name}</div><div className="fileName">{entry.asset.file_stl}</div><div className="tagRow"><Tag active={entry.asset.print_orientation === "Face-down"}>{entry.asset.print_orientation}</Tag><Tag active={!entry.asset.supports}>{entry.asset.supports ? "Supports" : "No supports"}</Tag>{entry.asset.bed_texture_finish ? <Tag active>Bed texture finish</Tag> : null}</div></div>)}</div></section>; }) : <div className="assetList">{CATALOG.map((asset) => <div className="assetCard" key={asset.id}><div className="assetName">{asset.name}</div><div className="assetId">{asset.id}</div><div className="tagRow"><Tag>{asset.category}</Tag><Tag>{asset.variant}</Tag></div></div>)}</div>}</div><div className="panelFooter twoButtons"><button className="panelButton" onClick={onCopy}><ClipboardList className="buttonIcon" aria-hidden="true" />Copy Build List</button><button className="panelButton" onClick={onDownload}><Download className="buttonIcon" aria-hidden="true" />Download TXT</button></div></aside>;
+  return <aside className="leftPanel"><div className="panelHeader"><div className="panelTitle">Diorama Configurator</div><div className="panelSub">Printable modular 3D scene builder</div><div className="tabs"><button className={activeTab === "library" ? "tab active" : "tab"} onClick={() => setActiveTab("library")}>Library</button><button className={activeTab === "print" ? "tab active" : "tab"} onClick={() => setActiveTab("print")}>Build</button><button className={activeTab === "assets" ? "tab active" : "tab"} onClick={() => setActiveTab("assets")}>Assets</button></div></div><div className="panelScroll">{activeTab === "library" ? <LibraryBrowser onApply={onApplyLibraryItem} /> : activeTab === "print" ? Object.keys(labels).map((category) => { const items = printList[category] || []; const total = items.reduce((sum, item) => sum + item.quantity, 0); return <section className="printGroup" key={category}><div className="groupHeader"><span>{labels[category]}</span><span>{total} pcs</span></div><div className="groupBody">{items.length === 0 ? <div className="emptyLine">No parts required.</div> : null}{items.map((entry) => <div className="partCard" key={entry.asset.id}><div className="partName"><b>{entry.quantity}×</b> {entry.asset.name}</div><div className="fileName">{entry.asset.file_stl}</div><div className="tagRow"><Tag active={entry.asset.print_orientation === "Face-down"}>{entry.asset.print_orientation}</Tag><Tag active={!entry.asset.supports}>{entry.asset.supports ? "Supports" : "No supports"}</Tag>{entry.asset.bed_texture_finish ? <Tag active>Bed texture finish</Tag> : null}</div></div>)}</div></section>; }) : <div className="assetList">{CATALOG.map((asset) => <div className="assetCard" key={asset.id}><div className="assetName">{asset.name}</div><div className="assetId">{asset.id}</div><div className="tagRow"><Tag>{asset.category}</Tag><Tag>{asset.variant}</Tag></div></div>)}</div>}</div><div className="panelFooter twoButtons"><button className="panelButton" onClick={onCopy}><ClipboardList className="buttonIcon" aria-hidden="true" />Copy Build List</button><button className="panelButton" onClick={onDownload}><Download className="buttonIcon" aria-hidden="true" />Download TXT</button></div></aside>;
 }
 
 function Stepper({ label, value, min, max, onChange, hint = "50 mm module" }) {
@@ -909,16 +988,21 @@ function Toggle({ label, value, onChange }) {
   return <div className="toggleRow"><span>{label}</span><button className={value ? "toggle on" : "toggle"} onClick={() => onChange(!value)}>{value ? "Yes" : "No"}</button></div>;
 }
 
-function MaterialPalette({ materialSlots, activeMaterialSlot, setActiveMaterialSlot, updateMaterialSlot, addMaterialSlot, removeMaterialSlot }) {
-  return <section className="settingsBlock materialBlock"><div className="materialHeader"><div className="settingsTitle">Tool Color</div><div className="materialActions"><button className="materialAction" onClick={removeMaterialSlot} disabled={materialSlots.length <= 1} title="Remove material"><Minus className="buttonIcon" aria-hidden="true" /></button><button className="materialAction" onClick={addMaterialSlot} disabled={materialSlots.length >= 8} title="Add material"><Plus className="buttonIcon" aria-hidden="true" /></button></div></div><div className="materialList">{materialSlots.map((slot) => { const active = slot.slot === activeMaterialSlot; return <div className={cx("materialRow", active ? "active" : "")} key={slot.slot}><button className="materialNumber" style={{ background: slot.color, color: getReadableTextColor(slot.color) }} onClick={() => setActiveMaterialSlot(slot.slot)}>{slot.slot}</button><select className="materialSelect" value={slot.presetId} onChange={(event) => updateMaterialSlot(slot.slot, { presetId: event.target.value })}>{MATERIAL_PRESETS.map((preset) => <option value={preset.id} key={preset.id}>{preset.label}</option>)}<option value={CUSTOM_MATERIAL_ID}>Custom</option></select><button className={cx("materialCustom", slot.presetId === CUSTOM_MATERIAL_ID ? "active" : "")} onClick={() => updateMaterialSlot(slot.slot, { presetId: CUSTOM_MATERIAL_ID })}><Pencil className="buttonIcon" aria-hidden="true" />Custom</button>{slot.presetId === CUSTOM_MATERIAL_ID ? <input className="materialPicker" type="color" value={slot.color} onChange={(event) => updateMaterialSlot(slot.slot, { color: event.target.value })} /> : null}</div>; })}</div></section>;
+function MaterialPalette({ materialSlots, activeMaterialSlot, setActiveMaterialSlot, updateMaterialSlot }) {
+  const [collapsedSlots, setCollapsedSlots] = useState({});
+  function toggleCollapsed(slotNumber) {
+    setCollapsedSlots((previous) => ({ ...previous, [slotNumber]: !previous[slotNumber] }));
+  }
+
+  return <section className="settingsBlock materialBlock"><div className="materialHeader"><div className="settingsTitle">Material</div></div><div className="materialList">{materialSlots.map((slot) => { const active = slot.slot === activeMaterialSlot; const collapsed = Boolean(collapsedSlots[slot.slot]); const brandMaterials = getMaterialsForBrand(slot.brand); const colorOptions = getColorsForMaterial(slot.brand, slot.material); return <div className={cx("materialRole", active ? "active" : "", collapsed ? "collapsed" : "")} key={slot.roleKey} onClick={() => setActiveMaterialSlot(slot.slot)}><div className="materialRoleHeader"><span className="materialIndex" style={{ background: slot.accent, color: getReadableTextColor(slot.accent) }}>{slot.slot}</span><button className="materialPreview" style={{ "--material-color": slot.color }} onClick={() => setActiveMaterialSlot(slot.slot)} title={makeMaterialLabel(slot)} /><span className="materialSummary">{makeMaterialLabel(slot)}</span><button className="materialCollapse" onClick={(event) => { event.stopPropagation(); toggleCollapsed(slot.slot); }} title={collapsed ? "Expand material" : "Collapse material"}><ChevronDown className="buttonIcon" aria-hidden="true" /></button></div>{collapsed ? null : <><div className="materialRoleBody"><div className="materialControls"><label><span>Brand</span><select value={slot.brand} onChange={(event) => updateMaterialSlot(slot.slot, { brand: event.target.value })}>{getMaterialBrands().map((brand) => <option key={brand}>{brand}</option>)}</select></label><label><span>Material</span><select value={slot.material} onChange={(event) => updateMaterialSlot(slot.slot, { material: event.target.value })}>{brandMaterials.map((material) => <option key={material}>{material}</option>)}</select></label><label><span>Color</span><select value={slot.colorName} onChange={(event) => updateMaterialSlot(slot.slot, { colorName: event.target.value })}>{colorOptions.map((entry) => <option key={entry.name}>{entry.name}</option>)}</select></label><div className="materialHex">{slot.color}</div></div></div><div className="swatchRow">{colorOptions.map((entry) => <button key={entry.name} className={cx("swatch", entry.name === slot.colorName ? "active" : "")} style={{ "--swatch": entry.color }} onClick={(event) => { event.stopPropagation(); updateMaterialSlot(slot.slot, { colorName: entry.name }); }} title={entry.name} />)}</div></>}</div>; })}</div></section>;
 }
 
-function RightPanel({ config, setConfig, materialSlots, activeMaterialSlot, setActiveMaterialSlot, updateMaterialSlot, addMaterialSlot, removeMaterialSlot, selectionCount, onReset, onShare, onExport }) {
+function RightPanel({ config, setConfig, materialSlots, activeMaterialSlot, setActiveMaterialSlot, updateMaterialSlot, selectionCount, onReset, onShare, onExport }) {
   const moduleHint = formatMeasure(MODULE_MM, config.units) + " module";
-  return <aside className="rightPanel"><div className="panelHeader inspectorHeader"><div><div className="panelTitle">Inspector</div><div className="panelSub">{selectionCount} selected tile{selectionCount === 1 ? "" : "s"}</div></div><button className="iconButton" onClick={onReset} title="Reset Configuration"><RotateCcw className="buttonIcon" aria-hidden="true" /></button></div><div className="panelScroll settingsScroll"><MaterialPalette materialSlots={materialSlots} activeMaterialSlot={activeMaterialSlot} setActiveMaterialSlot={setActiveMaterialSlot} updateMaterialSlot={updateMaterialSlot} addMaterialSlot={addMaterialSlot} removeMaterialSlot={removeMaterialSlot} /><section className="settingsBlock stack"><div className="settingsTitle">Grid</div><Stepper label="Width" value={config.width} min={1} max={10} hint={moduleHint} onChange={(value) => setConfig({ width: value })} /><Stepper label="Depth" value={config.depth} min={1} max={10} hint={moduleHint} onChange={(value) => setConfig({ depth: value })} /><Stepper label="Height" value={config.height} min={1} max={8} hint={moduleHint} onChange={(value) => setConfig({ height: value })} /><div className="sizeBox">Size: <b>{formatConfigSize(config)}</b></div></section><section className="settingsBlock stack"><div className="settingsTitle">Walls</div><Toggle label="Back Wall" value={config.backWall} onChange={(value) => setConfig({ backWall: value })} /><Toggle label="Left Wall" value={config.leftWall} onChange={(value) => setConfig({ leftWall: value })} /><Toggle label="Right Wall" value={config.rightWall} onChange={(value) => setConfig({ rightWall: value })} /></section></div><div className="panelFooter twoButtons"><button className="panelButton" onClick={onShare}><Share2 className="buttonIcon" aria-hidden="true" />Share</button><button className="panelButton primary" onClick={onExport}><Download className="buttonIcon" aria-hidden="true" />Export</button></div></aside>;
+  return <aside className="rightPanel"><div className="panelHeader inspectorHeader"><div><div className="panelTitle">Inspector</div><div className="panelSub">{selectionCount} selected tile{selectionCount === 1 ? "" : "s"}</div></div><button className="iconButton" onClick={onReset} title="Reset Configuration"><RotateCcw className="buttonIcon" aria-hidden="true" /></button></div><div className="panelScroll settingsScroll"><MaterialPalette materialSlots={materialSlots} activeMaterialSlot={activeMaterialSlot} setActiveMaterialSlot={setActiveMaterialSlot} updateMaterialSlot={updateMaterialSlot} /><section className="settingsBlock stack"><div className="settingsTitle">Grid</div><Stepper label="Width" value={config.width} min={1} max={10} hint={moduleHint} onChange={(value) => setConfig({ width: value })} /><Stepper label="Depth" value={config.depth} min={1} max={10} hint={moduleHint} onChange={(value) => setConfig({ depth: value })} /><Stepper label="Height" value={config.height} min={1} max={8} hint={moduleHint} onChange={(value) => setConfig({ height: value })} /><div className="sizeBox">Size: <b>{formatConfigSize(config)}</b></div></section><section className="settingsBlock stack"><div className="settingsTitle">Walls</div><Toggle label="Back Wall" value={config.backWall} onChange={(value) => setConfig({ backWall: value })} /><Toggle label="Left Wall" value={config.leftWall} onChange={(value) => setConfig({ leftWall: value })} /><Toggle label="Right Wall" value={config.rightWall} onChange={(value) => setConfig({ rightWall: value })} /></section></div><div className="panelFooter twoButtons"><button className="panelButton" onClick={onShare}><Share2 className="buttonIcon" aria-hidden="true" />Share</button><button className="panelButton primary" onClick={onExport}><Download className="buttonIcon" aria-hidden="true" />Export</button></div></aside>;
 }
 
-function Toolbar({ activeTool, setActiveTool, selectedCount, showLibrary, setShowLibrary, showRuler, setShowRuler, showGrid, setShowGrid, onGroup, onRotate, onFlip, onPaint }) {
+function Toolbar({ activeTool, setActiveTool, selectedCount, showRuler, setShowRuler, showGrid, setShowGrid, onGroup, onRotate, onFlip, onPaint }) {
   const [paintPulse, setPaintPulse] = useState(false);
 
   function pulsePaintButton() {
@@ -930,7 +1014,6 @@ function Toolbar({ activeTool, setActiveTool, selectedCount, showLibrary, setSho
   }
 
   function runTool(toolKey) {
-    if (toolKey === "library") { setShowLibrary((value) => !value); return; }
     if (toolKey === "group") { onGroup(); setActiveTool("select"); return; }
     if (toolKey === "rotate") { setActiveTool("rotate"); onRotate(); return; }
     if (toolKey === "flip") { setActiveTool("flip"); onFlip(); return; }
@@ -944,21 +1027,11 @@ function Toolbar({ activeTool, setActiveTool, selectedCount, showLibrary, setSho
     if (toolKey === "grid") { setShowGrid((value) => !value); return; }
     setActiveTool(toolKey);
   }
-  return <div className="floatingToolbar">{TOOLBAR.map((tool) => <button key={tool.key} title={tool.label} className={cx("toolButton", activeTool === tool.key ? "active" : "", tool.key === "paint" && paintPulse ? "pulse" : "", tool.key === "library" && showLibrary ? "active" : "", tool.key === "ruler" && showRuler ? "active" : "", tool.key === "grid" && showGrid ? "active" : "")} onClick={() => runTool(tool.key)}><MiniIcon Icon={tool.Icon} /></button>)}</div>;
-}
-
-function LibraryPopup({ show, onApply }) {
-  if (!show) return null;
-  const groups = [
-    { key: "floor", label: "Floor", items: LIBRARY_ITEMS.filter((item) => item.family === "floor") },
-    { key: "wall", label: "Wall", items: LIBRARY_ITEMS.filter((item) => item.family === "wall") }
-  ];
-  return <div className="libraryPopup">{groups.map((group) => <div className="libraryGroup" key={group.key}><div className="libraryGroupTitle">{group.label}</div><div className={cx("libraryGroupItems", group.key === "wall" ? "wallItems" : "")}>{group.items.map((item) => <button className="libraryItem" key={item.key} onClick={() => onApply(item.key)} title={item.label}><span className="libraryIcon" style={{ "--icon-url": `url("${item.iconSrc}")` }} /><span>{item.label}</span></button>)}</div></div>)}</div>;
+  return <div className="floatingToolbar">{TOOLBAR.map((tool) => <button key={tool.key} title={tool.label} className={cx("toolButton", activeTool === tool.key ? "active" : "", tool.key === "paint" && paintPulse ? "pulse" : "", tool.key === "ruler" && showRuler ? "active" : "", tool.key === "grid" && showGrid ? "active" : "")} onClick={() => runTool(tool.key)}><MiniIcon Icon={tool.Icon} /></button>)}</div>;
 }
 
 function Viewport({ config, tiles, setTiles, selectedIds, setSelectedIds, activeColor, activeMaterialSlot, activeMaterialLabel, showRuler, setShowRuler, showGrid, setShowGrid }) {
   const [activeTool, setActiveTool] = useState("select");
-  const [showLibrary, setShowLibrary] = useState(false);
   const groupCounter = useRef(1);
 
   function onSelectTile(tileId, additive) {
@@ -973,32 +1046,6 @@ function Viewport({ config, tiles, setTiles, selectedIds, setSelectedIds, active
   }
 
   function clearSelection() { setSelectedIds([]); }
-
-  function applyLibraryModel(actionKey) {
-    if (selectedIds.length === 0) return;
-    const modelId = getModelForLibraryAction(actionKey);
-    if (!modelId) {
-      console.warn("No prototype model assigned for", actionKey);
-      return;
-    }
-    if (isPanelModel(modelId)) {
-      const result = applyPanelModelToTiles(tiles, selectedIds, modelId);
-      if (!result) {
-        console.warn("Select three visible wall tiles in the same vertical line before applying a 1x3 panel.");
-        return;
-      }
-      setTiles(result.tiles);
-      setSelectedIds([result.anchorId]);
-      return;
-    }
-    setTiles((previous) => previous.map((tile) => {
-      const selected = selectedIds.includes(tile.id);
-      const releasedBySelection = selectedIds.includes(tile.coveredBy);
-      if (selected) return { ...tile, modelId, spanH: 1, spanAxis: null, spanSize: 1, coveredBy: null };
-      if (releasedBySelection) return { ...tile, coveredBy: null };
-      return tile;
-    }));
-  }
 
   function paintTileIds(tileIds) {
     const paintIds = new Set(tileIds);
@@ -1030,12 +1077,12 @@ function Viewport({ config, tiles, setTiles, selectedIds, setSelectedIds, active
     setActiveTool("select");
   }
 
-  return <main className="viewport"><Toolbar activeTool={activeTool} setActiveTool={setActiveTool} selectedCount={selectedIds.length} showLibrary={showLibrary} setShowLibrary={setShowLibrary} showRuler={showRuler} setShowRuler={setShowRuler} showGrid={showGrid} setShowGrid={setShowGrid} onGroup={groupSelected} onRotate={rotateSelected} onFlip={flipSelected} onPaint={paintSelected} /><LibraryPopup show={showLibrary} onApply={applyLibraryModel} /><div className="viewportBadge">{formatConfigSize(config)}</div><ThreeViewport config={config} tiles={tiles} selectedIds={selectedIds} activeTool={activeTool} onSelectTile={onSelectTile} onPaintTile={paintTile} clearSelection={clearSelection} showRuler={showRuler} showGrid={showGrid} /></main>;
+  return <main className="viewport"><Toolbar activeTool={activeTool} setActiveTool={setActiveTool} selectedCount={selectedIds.length} showRuler={showRuler} setShowRuler={setShowRuler} showGrid={showGrid} setShowGrid={setShowGrid} onGroup={groupSelected} onRotate={rotateSelected} onFlip={flipSelected} onPaint={paintSelected} /><div className="viewportBadge">{formatConfigSize(config)}</div><ThreeViewport config={config} tiles={tiles} selectedIds={selectedIds} activeTool={activeTool} onSelectTile={onSelectTile} onPaintTile={paintTile} clearSelection={clearSelection} showRuler={showRuler} showGrid={showGrid} /></main>;
 }
 
 export default function App() {
   const [config, setConfigState] = useState(DEFAULT_CONFIG);
-  const [activeTab, setActiveTab] = useState("print");
+  const [activeTab, setActiveTab] = useState("library");
   const [materialSlots, setMaterialSlots] = useState(DEFAULT_MATERIAL_SLOTS);
   const [activeMaterialSlot, setActiveMaterialSlot] = useState(1);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -1044,6 +1091,7 @@ export default function App() {
   const [tiles, setTiles] = useState(() => makeTiles(DEFAULT_CONFIG));
   const activeMaterial = materialSlots.find((slot) => slot.slot === activeMaterialSlot) || materialSlots[0] || DEFAULT_MATERIAL_SLOTS[0];
   const activeColor = activeMaterial.color;
+  const activeMaterialLabel = makeMaterialLabel(activeMaterial);
 
   function updateConfig(patch) {
     setConfigState((previousConfig) => {
@@ -1065,30 +1113,48 @@ export default function App() {
   function updateMaterialSlot(slotNumber, patch) {
     setMaterialSlots((previousSlots) => previousSlots.map((slot) => {
       if (slot.slot !== slotNumber) return slot;
-      if (patch.presetId && patch.presetId !== CUSTOM_MATERIAL_ID) {
-        const preset = getMaterialPreset(patch.presetId);
-        if (!preset) return slot;
-        return { ...slot, presetId: preset.id, label: preset.label, color: preset.color };
+      if (patch.brand) {
+        const material = getMaterialsForBrand(patch.brand)[0] || slot.material;
+        const colorOption = getColorsForMaterial(patch.brand, material)[0] || { name: slot.colorName, color: slot.color };
+        return { ...slot, brand: patch.brand, material, colorName: colorOption.name, color: colorOption.color };
       }
-      if (patch.presetId === CUSTOM_MATERIAL_ID) return { ...slot, presetId: CUSTOM_MATERIAL_ID, label: "Custom Material " + slot.slot };
-      if (patch.color) return { ...slot, presetId: CUSTOM_MATERIAL_ID, label: "Custom Material " + slot.slot, color: patch.color };
+      if (patch.material) {
+        const colorOption = getColorsForMaterial(slot.brand, patch.material)[0] || { name: slot.colorName, color: slot.color };
+        return { ...slot, material: patch.material, colorName: colorOption.name, color: colorOption.color };
+      }
+      if (patch.colorName) {
+        const colorOption = getMaterialColor(slot.brand, slot.material, patch.colorName);
+        return { ...slot, colorName: colorOption.name, color: colorOption.color };
+      }
       return slot;
     }));
     setActiveMaterialSlot(slotNumber);
   }
 
-  function addMaterialSlot() {
-    if (materialSlots.length >= 8) return;
-    const nextSlot = materialSlots.length + 1;
-    setMaterialSlots((previousSlots) => previousSlots.concat(makeMaterialSlot(nextSlot)));
-    setActiveMaterialSlot(nextSlot);
-  }
-
-  function removeMaterialSlot() {
-    if (materialSlots.length <= 1) return;
-    const nextLength = materialSlots.length - 1;
-    setMaterialSlots((previousSlots) => previousSlots.slice(0, -1));
-    setActiveMaterialSlot((slot) => Math.min(slot, nextLength));
+  function applyLibraryModel(actionKey) {
+    if (selectedIds.length === 0) return;
+    const modelId = getModelForLibraryAction(actionKey);
+    if (!modelId) {
+      console.warn("No prototype model assigned for", actionKey);
+      return;
+    }
+    if (isPanelModel(modelId)) {
+      const result = applyPanelModelToTiles(tiles, selectedIds, modelId);
+      if (!result) {
+        console.warn("Select three visible wall tiles in the same vertical line before applying a 1x3 panel.");
+        return;
+      }
+      setTiles(result.tiles);
+      setSelectedIds([result.anchorId]);
+      return;
+    }
+    setTiles((previous) => previous.map((tile) => {
+      const selected = selectedIds.includes(tile.id);
+      const releasedBySelection = selectedIds.includes(tile.coveredBy);
+      if (selected) return { ...tile, modelId, spanH: 1, spanAxis: null, spanSize: 1, coveredBy: null };
+      if (releasedBySelection) return { ...tile, coveredBy: null };
+      return tile;
+    }));
   }
 
   function downloadTxt() {
@@ -1148,7 +1214,7 @@ export default function App() {
     .topSelectLabel { color: #777777; font-size: 12px; font-weight: 600; }
     .topSelect select { width: auto; min-width: 46px; height: 100%; border: 0; border-radius: 0; background: transparent; color: #111111; padding: 0 3px; font-size: 12px; font-weight: 700; letter-spacing: -0.01em; outline: none; appearance: none; cursor: pointer; }
     .topSelect .topIcon { width: 14px; height: 14px; color: #6f6f6f; }
-    .topSelect:hover, .roundAction:hover, .userPill:hover, .railButton:hover, .toolButton:hover, .panelButton:hover, .iconButton:hover, .tab:hover, .libraryItem:hover { background: #f2f2f2; color: #111111; }
+    .topSelect:hover, .roundAction:hover, .userPill:hover, .railButton:hover, .toolButton:hover, .panelButton:hover, .iconButton:hover, .tab:hover { background: #f2f2f2; color: #111111; }
     .roundAction { width: var(--control-height); height: var(--control-height); border-radius: var(--frame-radius); display: grid; place-items: center; color: #6f6f6f; background: #ffffff; }
     .roundAction.active { background: #111111; border-color: #111111; color: #ffffff; }
     .userPill { height: var(--control-height); border-radius: var(--frame-radius); padding: 0 12px 0 6px; display: inline-flex; align-items: center; gap: 9px; color: #111111; }
@@ -1193,6 +1259,19 @@ export default function App() {
     .tagRow { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
     .tag { border: 1px solid #e8e5df; border-radius: 7px; padding: 3px 6px; color: #777777; font-size: 10px; line-height: 1; font-weight: 700; letter-spacing: -0.01em; }
     .tag.active { border-color: rgba(30,31,35,0.2); background: rgba(30,31,35,0.1); color: #303238; }
+    .libraryPanel { display: flex; flex-direction: column; gap: 10px; }
+    .librarySearch { height: 38px; border: 1px solid #e8e5df; border-radius: 12px; background: #ffffff; display: flex; align-items: center; gap: 8px; padding: 0 10px; color: #6f6f6f; }
+    .librarySearch input { min-width: 0; width: 100%; border: 0; outline: none; background: transparent; color: #111111; font-size: 12px; font-weight: 600; letter-spacing: -0.01em; }
+    .librarySearch input::placeholder { color: #8a8a8a; font-weight: 500; }
+    .searchIcon { width: 15px; height: 15px; flex: 0 0 auto; }
+    .libraryGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .libraryCard { min-width: 0; border: 1px solid #e8e5df; border-radius: 14px; background: #ffffff; padding: 8px; display: flex; flex-direction: column; align-items: stretch; gap: 7px; color: #111111; text-align: left; box-shadow: 0 10px 22px rgba(33,35,38,0.04); }
+    .libraryCard:hover { border-color: rgba(17,17,17,0.18); background: #fbfaf7; }
+    .libraryThumb { height: 96px; border: 1px solid #e8e5df; border-radius: 12px; background: #f7f6f2; display: grid; place-items: center; overflow: hidden; }
+    .libraryThumb img { width: 100%; height: 100%; object-fit: contain; transform: scale(1.12); transition: transform 150ms ease; }
+    .libraryCard:hover .libraryThumb img { transform: scale(1.26); }
+    .libraryCardName { font-size: 12px; line-height: 1.1; font-weight: 800; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .libraryCardMeta { margin-top: -3px; color: #777777; font-size: 10px; line-height: 1; font-weight: 600; letter-spacing: -0.01em; }
     .panelFooter { border-top: 1px solid rgba(45,47,51,0.08); padding: 12px; background: rgba(255,255,255,0.54); }
     .twoButtons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .panelButton, .iconButton { border: 1px solid #e8e5df; border-radius: 13px; background: #ffffff; color: #111111; font-size: 13px; font-weight: 700; min-height: 40px; letter-spacing: -0.01em; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
@@ -1207,21 +1286,28 @@ export default function App() {
     .label { display: block; color: #555555; font-size: 12px; font-weight: 600; margin-bottom: 5px; }
     .label.withTop { margin-top: 10px; }
     select { width: 100%; height: 33px; border: 1px solid #e8e5df; border-radius: 11px; background: #ffffff; color: #111111; padding: 0 9px; font-size: 13px; font-weight: 600; letter-spacing: -0.01em; outline: none; }
-    .materialBlock { padding: 11px; }
-    .materialHeader { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 9px; }
-    .materialHeader .settingsTitle { margin-bottom: 0; }
-    .materialActions { display: flex; gap: 6px; }
-    .materialAction { width: 28px; height: 28px; border: 1px solid #e8e5df; border-radius: 9px; display: grid; place-items: center; background: #ffffff; color: #6f6f6f; }
-    .materialAction:hover, .materialCustom:hover { background: #f2f2f2; color: #111111; }
-    .materialAction:disabled { opacity: 0.38; cursor: default; }
-    .materialList { display: flex; flex-direction: column; gap: 7px; }
-    .materialRow { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto auto; align-items: center; gap: 7px; padding: 4px; border: 1px solid transparent; border-radius: 12px; background: rgba(255,255,255,0.48); }
-    .materialRow.active { border-color: #111111; background: #ffffff; }
-    .materialNumber { width: 32px; height: 32px; border: 1px solid rgba(17,17,17,0.18); border-radius: 6px; display: grid; place-items: center; font-size: 14px; font-weight: 700; letter-spacing: -0.02em; }
-    .materialSelect { height: 32px; min-width: 0; border-radius: 6px; padding: 0 8px; background: #ffffff; font-size: 12px; font-weight: 600; }
-    .materialCustom { height: 32px; border: 1px solid #e8e5df; border-radius: 8px; padding: 0 8px; display: inline-flex; align-items: center; gap: 5px; background: #ffffff; color: #6f6f6f; font-size: 11px; font-weight: 700; letter-spacing: -0.01em; }
-    .materialCustom.active { background: #111111; border-color: #111111; color: #ffffff; }
-    .materialPicker { width: 32px; height: 32px; border: 1px solid #e8e5df; border-radius: 8px; padding: 2px; background: #ffffff; }
+    .materialBlock { padding: 13px; }
+    .materialHeader { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #e8e5df; }
+    .materialHeader .settingsTitle { margin-bottom: 0; font-size: 13px; }
+    .materialCollapse { width: 36px; height: 36px; border: 1px solid #e8e5df; border-radius: 12px; background: #ffffff; color: #555555; display: grid; place-items: center; flex: 0 0 auto; }
+    .materialRole.collapsed .materialCollapse .buttonIcon { transform: rotate(-90deg); }
+    .materialList { display: flex; flex-direction: column; gap: 12px; }
+    .materialRole { border-bottom: 1px solid #e8e5df; padding-bottom: 12px; }
+    .materialRole:last-child { border-bottom: 0; padding-bottom: 0; }
+    .materialRoleHeader { display: grid; grid-template-columns: 36px 36px minmax(0, 1fr) 36px; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .materialRole.collapsed .materialRoleHeader { margin-bottom: 0; }
+    .materialIndex { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; font-size: 15px; font-weight: 800; letter-spacing: -0.02em; box-shadow: inset 0 1px 0 rgba(255,255,255,0.55); }
+    .materialSummary { min-width: 0; color: #111111; font-size: 13px; line-height: 1.08; font-weight: 800; letter-spacing: -0.025em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .materialRoleBody { display: block; padding-left: 0; }
+    .materialPreview { width: 36px; height: 36px; border: 1px solid rgba(17,17,17,0.1); border-radius: 12px; background: radial-gradient(circle at 24% 18%, rgba(255,255,255,0.34), transparent 28%), linear-gradient(145deg, color-mix(in srgb, var(--material-color), #ffffff 8%), color-mix(in srgb, var(--material-color), #000000 12%)); box-shadow: 0 10px 20px rgba(33,35,38,0.1), inset 0 1px 0 rgba(255,255,255,0.32); }
+    .materialControls { display: grid; gap: 6px; min-width: 0; }
+    .materialControls label { display: grid; grid-template-columns: 68px minmax(0, 1fr); align-items: center; gap: 8px; }
+    .materialControls label span { color: #555555; font-size: 12px; font-weight: 800; letter-spacing: -0.015em; }
+    .materialControls select { height: 34px; min-width: 0; border-radius: 13px; background: #ffffff; font-size: 13px; font-weight: 800; padding: 0 10px; }
+    .materialHex { margin-left: 76px; margin-top: -2px; color: #b0aaa2; font-size: 10px; font-weight: 700; letter-spacing: -0.01em; }
+    .swatchRow { display: flex; flex-wrap: wrap; gap: 12px; margin-left: 0; margin-top: 14px; }
+    .swatch { width: 24px; height: 24px; border: 1px solid rgba(17,17,17,0.08); border-radius: 999px; background: var(--swatch); box-shadow: inset 0 1px 0 rgba(255,255,255,0.42); }
+    .swatch.active { outline: 2px solid #111111; outline-offset: 3px; }
     .colorRow { display: flex; align-items: center; gap: 9px; }
     .colorRow input { width: 46px; height: 32px; border: 1px solid var(--border); border-radius: 8px; background: transparent; }
     .colorRow span { color: #777777; font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
@@ -1249,14 +1335,6 @@ export default function App() {
       48% { background: #111111; border-color: #111111; color: #ffffff; }
     }
     .miniIcon { width: 16px; height: 16px; }
-    .libraryPopup { position: absolute; z-index: 29; top: 80px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; padding: 8px; border: 1px solid #e8e5df; border-radius: var(--frame-radius); background: rgba(255,255,255,0.86); -webkit-backdrop-filter: blur(18px) saturate(125%); backdrop-filter: blur(18px) saturate(125%); box-shadow: 0 18px 45px rgba(75,72,68,0.2); }
-    .libraryGroup { display: flex; flex-direction: column; gap: 5px; }
-    .libraryGroupTitle { color: #777777; font-size: 11px; font-weight: 800; line-height: 1; text-transform: uppercase; letter-spacing: -0.01em; padding-left: 3px; }
-    .libraryGroupItems { display: flex; gap: 5px; }
-    .libraryGroupItems.wallItems { display: grid; grid-template-columns: repeat(3, 76px); }
-    .libraryItem { width: 76px; height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px solid #e8e5df; border-radius: 12px; background: #ffffff; color: #6f6f6f; font-size: 10px; font-weight: 700; letter-spacing: -0.01em; text-align: center; white-space: nowrap; }
-    .libraryItem:hover { color: #111111; border-color: #e8e5df; background: #f2f2f2; }
-    .libraryIcon { width: 18px; height: 18px; display: block; background: currentColor; -webkit-mask: var(--icon-url) center / contain no-repeat; mask: var(--icon-url) center / contain no-repeat; }
     .viewportBadge { position: absolute; z-index: 10; right: 374px; top: 22px; height: var(--control-height); display: inline-flex; align-items: center; border: 1px solid #e8e5df; border-radius: var(--frame-radius); background: rgba(255,255,255,0.68); color: #111111; font-size: 12px; font-weight: 700; letter-spacing: -0.015em; padding: 0 14px; pointer-events: none; backdrop-filter: blur(14px); }
     @media (max-width: 1180px) {
       .appTopBar { grid-template-columns: 150px 1fr auto; gap: 14px; padding: 0 20px; }
@@ -1280,8 +1358,7 @@ export default function App() {
       .panelHeader { padding: 12px; }
       .panelScroll { padding: 10px; }
       .floatingToolbar { top: calc(50vh - 23px); }
-      .libraryPopup { top: calc(50vh + 30px); max-width: calc(100vw - 24px); overflow-x: auto; }
       .viewportBadge { display: none; }
     }
-  `}</style><AppTopBar config={config} setConfig={updateConfig} activeTab={activeTab} setActiveTab={setActiveTab} /><div className="mainLayout"><SideRail /><LeftPanel activeTab={activeTab} setActiveTab={setActiveTab} printList={printList} onCopy={copyBuildList} onDownload={downloadTxt} /><Viewport config={config} tiles={tiles} setTiles={setTiles} selectedIds={selectedIds} setSelectedIds={setSelectedIds} activeColor={activeColor} activeMaterialSlot={activeMaterial.slot} activeMaterialLabel={activeMaterial.label} showRuler={showRuler} setShowRuler={setShowRuler} showGrid={showGrid} setShowGrid={setShowGrid} /><RightPanel config={config} setConfig={updateConfig} materialSlots={materialSlots} activeMaterialSlot={activeMaterialSlot} setActiveMaterialSlot={setActiveMaterialSlot} updateMaterialSlot={updateMaterialSlot} addMaterialSlot={addMaterialSlot} removeMaterialSlot={removeMaterialSlot} selectionCount={selectedIds.length} onReset={resetConfiguration} onShare={shareBuildList} onExport={downloadTxt} /></div></div>;
+  `}</style><AppTopBar config={config} setConfig={updateConfig} activeTab={activeTab} setActiveTab={setActiveTab} /><div className="mainLayout"><SideRail /><LeftPanel activeTab={activeTab} setActiveTab={setActiveTab} printList={printList} onApplyLibraryItem={applyLibraryModel} onCopy={copyBuildList} onDownload={downloadTxt} /><Viewport config={config} tiles={tiles} setTiles={setTiles} selectedIds={selectedIds} setSelectedIds={setSelectedIds} activeColor={activeColor} activeMaterialSlot={activeMaterial.slot} activeMaterialLabel={activeMaterialLabel} showRuler={showRuler} setShowRuler={setShowRuler} showGrid={showGrid} setShowGrid={setShowGrid} /><RightPanel config={config} setConfig={updateConfig} materialSlots={materialSlots} activeMaterialSlot={activeMaterialSlot} setActiveMaterialSlot={setActiveMaterialSlot} updateMaterialSlot={updateMaterialSlot} selectionCount={selectedIds.length} onReset={resetConfiguration} onShare={shareBuildList} onExport={downloadTxt} /></div></div>;
 }
