@@ -952,9 +952,18 @@ function SideRail() {
 
 function Tag({ children, active }) { return <span className={active ? "tag active" : "tag"}>{children}</span>; }
 
-function LibraryBrowser({ onApply }) {
+function LibraryBrowser({ config, setConfig, onApply }) {
   const [query, setQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const normalizedQuery = query.trim().toLowerCase();
+  const categoryOptions = [
+    { value: "all", label: "All" },
+    { value: "floor", label: "Floor" },
+    { value: "wall", label: "Wall" },
+    { value: "connector", label: "Connector" },
+    { value: "trim", label: "Trim" },
+    { value: "accessory", label: "Accessory" }
+  ];
   const items = LIBRARY_ITEMS.map((item) => {
     const modelId = getModelForLibraryAction(item.key);
     const asset = modelId ? ASSET_BY_ID[modelId] : null;
@@ -973,14 +982,34 @@ function LibraryBrowser({ onApply }) {
       asset ? asset.notes : ""
     ].join(" ").toLowerCase();
     return { ...item, asset, tokens };
-  }).filter((item) => !normalizedQuery || item.tokens.includes(normalizedQuery));
+  }).filter((item) => {
+    const matchesQuery = !normalizedQuery || item.tokens.includes(normalizedQuery);
+    const assetTheme = item.asset ? item.asset.theme : "scifi";
+    const matchesTheme = assetTheme === config.theme.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const assetCategory = item.asset ? item.asset.category : item.family;
+    const matchesCategory = categoryFilter === "all" || assetCategory === categoryFilter || item.family === categoryFilter;
+    return matchesQuery && matchesTheme && matchesCategory;
+  });
 
-  return <div className="libraryPanel"><label className="librarySearch"><Search className="searchIcon" aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by name, supports, flat..." /></label><div className="libraryGrid">{items.map((item) => <button className="libraryCard" key={item.key} onClick={() => onApply(item.key)} title={item.asset ? item.asset.name : item.label}><span className="libraryThumb"><img src={item.iconSrc} alt="" /></span><span className="libraryCardName">{item.label}</span><span className="libraryCardMeta">{item.asset ? item.asset.print_orientation : item.family}</span><span className="tagRow"><Tag>{item.family}</Tag>{item.asset ? <Tag active={!item.asset.supports}>{item.asset.supports ? "Supports" : "No supports"}</Tag> : null}</span></button>)}</div>{items.length === 0 ? <div className="emptyLine">No parts match that search.</div> : null}</div>;
+  return <div className="libraryPanel"><label className="librarySearch"><Search className="searchIcon" aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by name, supports, flat..." /></label><div className="libraryFilters"><div className="librarySectionTitle">Filter</div><div className="libraryFilterRow"><label className="libraryFilterControl"><span>Scale</span><select value={config.scale} onChange={(event) => setConfig({ scale: event.target.value })}>{SCALE_OPTIONS.map((scale) => <option key={scale}>{scale}</option>)}</select></label><label className="libraryFilterControl"><span>Theme</span><select value={config.theme} onChange={(event) => setConfig({ theme: event.target.value })}>{THEME_OPTIONS.map((theme) => <option key={theme}>{theme}</option>)}</select></label></div><div className="libraryFilterLabel">Category</div><div className="libraryCategoryRow">{categoryOptions.map((category) => <button key={category.value} className={cx("libraryChip", categoryFilter === category.value ? "active" : "")} onClick={() => setCategoryFilter(category.value)}>{category.label}</button>)}</div></div><div className="libraryGrid">{items.map((item) => <button className="libraryCard" key={item.key} onClick={() => onApply(item.key)} title={item.asset ? item.asset.name : item.label}><span className="libraryThumb"><img src={item.iconSrc} alt="" /></span><span className="libraryCardName">{item.label}</span><span className="libraryCardMeta">{item.asset ? item.asset.print_orientation : item.family}</span><span className="tagRow"><Tag>{item.family}</Tag>{item.asset ? <Tag active={!item.asset.supports}>{item.asset.supports ? "Supports" : "No supports"}</Tag> : null}</span></button>)}</div>{items.length === 0 ? <div className="emptyLine">No parts match that search.</div> : null}</div>;
 }
 
-function LeftPanel({ activeTab, setActiveTab, printList, onApplyLibraryItem, onCopy, onDownload }) {
+function BuildList({ printList }) {
   const labels = { floor: "Floors", wall: "Walls", connector: "Connectors", trim: "Trims", accessory: "Accessories" };
-  return <aside className="leftPanel"><div className="panelHeader"><div className="panelTitle">Diorama Configurator</div><div className="panelSub">Printable modular 3D scene builder</div><div className="tabs"><button className={activeTab === "library" ? "tab active" : "tab"} onClick={() => setActiveTab("library")}>Library</button><button className={activeTab === "print" ? "tab active" : "tab"} onClick={() => setActiveTab("print")}>Build</button><button className={activeTab === "assets" ? "tab active" : "tab"} onClick={() => setActiveTab("assets")}>Assets</button></div></div><div className="panelScroll">{activeTab === "library" ? <LibraryBrowser onApply={onApplyLibraryItem} /> : activeTab === "print" ? Object.keys(labels).map((category) => { const items = printList[category] || []; const total = items.reduce((sum, item) => sum + item.quantity, 0); return <section className="printGroup" key={category}><div className="groupHeader"><span>{labels[category]}</span><span>{total} pcs</span></div><div className="groupBody">{items.length === 0 ? <div className="emptyLine">No parts required.</div> : null}{items.map((entry) => <div className="partCard" key={entry.asset.id}><div className="partName"><b>{entry.quantity}×</b> {entry.asset.name}</div><div className="fileName">{entry.asset.file_stl}</div><div className="tagRow"><Tag active={entry.asset.print_orientation === "Face-down"}>{entry.asset.print_orientation}</Tag><Tag active={!entry.asset.supports}>{entry.asset.supports ? "Supports" : "No supports"}</Tag>{entry.asset.bed_texture_finish ? <Tag active>Bed texture finish</Tag> : null}</div></div>)}</div></section>; }) : <div className="assetList">{CATALOG.map((asset) => <div className="assetCard" key={asset.id}><div className="assetName">{asset.name}</div><div className="assetId">{asset.id}</div><div className="tagRow"><Tag>{asset.category}</Tag><Tag>{asset.variant}</Tag></div></div>)}</div>}</div><div className="panelFooter twoButtons"><button className="panelButton" onClick={onCopy}><ClipboardList className="buttonIcon" aria-hidden="true" />Copy Build List</button><button className="panelButton" onClick={onDownload}><Download className="buttonIcon" aria-hidden="true" />Download TXT</button></div></aside>;
+  return <>{Object.keys(labels).map((category) => { const items = printList[category] || []; const total = items.reduce((sum, item) => sum + item.quantity, 0); return <section className="printGroup" key={category}><div className="groupHeader"><span>{labels[category]}</span><span>{total} pcs</span></div><div className="groupBody">{items.length === 0 ? <div className="emptyLine">No parts required.</div> : null}{items.map((entry) => <div className="partCard" key={entry.asset.id}><div className="partName"><b>{entry.quantity}×</b> {entry.asset.name}</div><div className="fileName">{entry.asset.file_stl}</div><div className="tagRow"><Tag active={entry.asset.print_orientation === "Face-down"}>{entry.asset.print_orientation}</Tag><Tag active={!entry.asset.supports}>{entry.asset.supports ? "Supports" : "No supports"}</Tag>{entry.asset.bed_texture_finish ? <Tag active>Bed texture finish</Tag> : null}</div></div>)}</div></section>; })}</>;
+}
+
+function AssetsList() {
+  return <div className="assetList">{CATALOG.map((asset) => <div className="assetCard" key={asset.id}><div className="assetName">{asset.name}</div><div className="assetId">{asset.id}</div><div className="tagRow"><Tag>{asset.category}</Tag><Tag>{asset.variant}</Tag></div></div>)}</div>;
+}
+
+function LeftPanel({ config, setConfig, printList, onApplyLibraryItem, onCopy, onDownload }) {
+  const [collapsedBlocks, setCollapsedBlocks] = useState({});
+  function toggleBlock(blockKey) {
+    setCollapsedBlocks((previous) => ({ ...previous, [blockKey]: !previous[blockKey] }));
+  }
+
+  return <aside className="leftPanel"><div className="panelHeader"><div className="panelTitle">Diorama Configurator</div><div className="panelSub">Printable modular 3D scene builder</div></div><div className="panelScroll settingsScroll"><CollapsibleSettingsBlock title="Library" collapsed={Boolean(collapsedBlocks.library)} onToggle={() => toggleBlock("library")}><LibraryBrowser config={config} setConfig={setConfig} onApply={onApplyLibraryItem} /></CollapsibleSettingsBlock><CollapsibleSettingsBlock title="Build" collapsed={Boolean(collapsedBlocks.build)} onToggle={() => toggleBlock("build")}><BuildList printList={printList} /></CollapsibleSettingsBlock><CollapsibleSettingsBlock title="Assets" collapsed={Boolean(collapsedBlocks.assets)} onToggle={() => toggleBlock("assets")}><AssetsList /></CollapsibleSettingsBlock></div><div className="panelFooter twoButtons"><button className="panelButton" onClick={onCopy}><ClipboardList className="buttonIcon" aria-hidden="true" />Copy Build List</button><button className="panelButton" onClick={onDownload}><Download className="buttonIcon" aria-hidden="true" />Download TXT</button></div></aside>;
 }
 
 function Stepper({ label, value, min, max, onChange, hint = "50 mm module" }) {
@@ -1103,7 +1132,6 @@ function Viewport({ config, tiles, setTiles, selectedIds, setSelectedIds, active
 
 export default function App() {
   const [config, setConfigState] = useState(DEFAULT_CONFIG);
-  const [activeTab, setActiveTab] = useState("library");
   const [materialSlots, setMaterialSlots] = useState(DEFAULT_MATERIAL_SLOTS);
   const [activeMaterialSlot, setActiveMaterialSlot] = useState(1);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -1269,7 +1297,7 @@ export default function App() {
     .railIcon { width: var(--icon-glyph-size); height: var(--icon-glyph-size); stroke-width: var(--icon-stroke-width); }
     .panelButton:hover, .iconButton:hover { border-color: #e8e5df; color: #111111; background: #f2f2f2; }
     .leftPanel, .rightPanel { position: absolute; z-index: 20; top: 22px; bottom: 22px; min-height: 0; display: flex; flex-direction: column; border: 1px solid #e8e5df; border-radius: var(--frame-radius); background: var(--panel); -webkit-backdrop-filter: blur(18px) saturate(118%); backdrop-filter: blur(18px) saturate(118%); box-shadow: 0 28px 72px rgba(33,35,38,0.11), 0 2px 8px rgba(33,35,38,0.04), inset 0 1px 0 rgba(255,255,255,0.92); overflow: hidden; }
-    .leftPanel { left: 42px; width: 348px; }
+    .leftPanel { left: 42px; width: 348px; bottom: auto; max-height: calc(100% - 44px); }
     .rightPanel { right: 42px; width: 322px; bottom: auto; max-height: calc(100% - 44px); }
     .panelHeader { padding: 18px; border-bottom: 1px solid rgba(45,47,51,0.07); background: rgba(255,255,255,0.42); }
     .panelTitle { font-size: 14px; font-weight: 700; letter-spacing: -0.02em; }
@@ -1283,7 +1311,7 @@ export default function App() {
     .tabs .tab:last-child { font-weight: 600; }
     .tab.active { background: #111111; border-color: #111111; color: #ffffff; }
     .panelScroll { flex: 1; min-height: 0; overflow: auto; padding: 12px; }
-    .rightPanel .panelScroll { flex: 0 1 auto; }
+    .leftPanel .panelScroll, .rightPanel .panelScroll { flex: 0 1 auto; }
     .panelScroll::-webkit-scrollbar { width: 8px; }
     .panelScroll::-webkit-scrollbar-track { background: transparent; }
     .panelScroll::-webkit-scrollbar-thumb { background: rgba(38,40,44,0.18); border-radius: 99px; }
@@ -1300,10 +1328,20 @@ export default function App() {
     .tag { border: 1px solid #e8e5df; border-radius: 7px; padding: 3px 6px; color: #777777; font-size: 10px; line-height: 1; font-weight: 700; letter-spacing: -0.01em; }
     .tag.active { border-color: rgba(30,31,35,0.2); background: rgba(30,31,35,0.1); color: #303238; }
     .libraryPanel { display: flex; flex-direction: column; gap: 10px; }
-    .librarySearch { height: 38px; border: 1px solid #e8e5df; border-radius: 12px; background: #ffffff; display: flex; align-items: center; gap: 8px; padding: 0 10px; color: #6f6f6f; }
-    .librarySearch input { min-width: 0; width: 100%; border: 0; outline: none; background: transparent; color: #111111; font-size: 12px; font-weight: 600; letter-spacing: -0.01em; }
-    .librarySearch input::placeholder { color: #8a8a8a; font-weight: 500; }
+    .librarySearch { height: 26px; border: 1px solid #e8e5df; border-radius: 8px; background: #ffffff; display: flex; align-items: center; gap: 8px; padding: 0 8px; color: #6f6f6f; }
+    .librarySearch input { min-width: 0; width: 100%; border: 0; outline: none; background: transparent; color: #777777; font-size: 11px; font-weight: 400; letter-spacing: -0.01em; }
+    .librarySearch input::placeholder { color: #8a8a8a; font-weight: 400; }
     .searchIcon { width: 15px; height: 15px; flex: 0 0 auto; }
+    .libraryFilters { display: flex; flex-direction: column; gap: 9px; padding: 10px 0; border-top: 1px solid #e8e5df; border-bottom: 1px solid #e8e5df; }
+    .librarySectionTitle { color: #111111; font-size: 12px; font-weight: 800; letter-spacing: -0.01em; }
+    .libraryFilterRow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: end; }
+    .libraryFilterControl { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; min-width: 0; }
+    .libraryFilterControl span, .libraryFilterLabel { color: #555555; font-size: 12px; font-weight: 600; letter-spacing: -0.01em; }
+    .libraryFilterControl select { height: 26px; min-width: 0; border-radius: 8px; background: #ffffff; color: #777777; font-size: 11px; font-weight: 400; padding: 0 8px; }
+    .libraryCategoryRow { display: flex; flex-wrap: wrap; gap: 8px; }
+    .libraryChip { height: 26px; border: 1px solid #e8e5df; border-radius: 8px; background: #ffffff; color: #555555; padding: 0 10px; font-size: 11px; font-weight: 600; letter-spacing: -0.01em; }
+    .libraryChip:hover { background: #f2f2f2; color: #111111; }
+    .libraryChip.active { background: #111111; border-color: #111111; color: #ffffff; }
     .libraryGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
     .libraryCard { min-width: 0; border: 1px solid #e8e5df; border-radius: 14px; background: #ffffff; padding: 8px; display: flex; flex-direction: column; align-items: stretch; gap: 7px; color: #111111; text-align: left; box-shadow: 0 10px 22px rgba(33,35,38,0.04); }
     .libraryCard:hover { border-color: rgba(17,17,17,0.18); background: #fbfaf7; }
@@ -1412,5 +1450,5 @@ export default function App() {
       .floatingToolbar { top: calc(50vh - 23px); }
       .viewportBadge { display: none; }
     }
-  `}</style><AppTopBar config={config} setConfig={updateConfig} /><div className="mainLayout"><SideRail /><LeftPanel activeTab={activeTab} setActiveTab={setActiveTab} printList={printList} onApplyLibraryItem={applyLibraryModel} onCopy={copyBuildList} onDownload={downloadTxt} /><Viewport config={config} tiles={tiles} setTiles={setTiles} selectedIds={selectedIds} setSelectedIds={setSelectedIds} activeColor={activeColor} activeMaterialSlot={activeMaterial.slot} activeMaterialLabel={activeMaterialLabel} showRuler={showRuler} setShowRuler={setShowRuler} showGrid={showGrid} setShowGrid={setShowGrid} /><RightPanel config={config} setConfig={updateConfig} materialSlots={materialSlots} activeMaterialSlot={activeMaterialSlot} setActiveMaterialSlot={setActiveMaterialSlot} updateMaterialSlot={updateMaterialSlot} addMaterialSlot={addMaterialSlot} removeMaterialSlot={removeMaterialSlot} selectionCount={selectedIds.length} onReset={resetConfiguration} onShare={shareBuildList} onExport={downloadTxt} /></div></div>;
+  `}</style><AppTopBar config={config} setConfig={updateConfig} /><div className="mainLayout"><SideRail /><LeftPanel config={config} setConfig={updateConfig} printList={printList} onApplyLibraryItem={applyLibraryModel} onCopy={copyBuildList} onDownload={downloadTxt} /><Viewport config={config} tiles={tiles} setTiles={setTiles} selectedIds={selectedIds} setSelectedIds={setSelectedIds} activeColor={activeColor} activeMaterialSlot={activeMaterial.slot} activeMaterialLabel={activeMaterialLabel} showRuler={showRuler} setShowRuler={setShowRuler} showGrid={showGrid} setShowGrid={setShowGrid} /><RightPanel config={config} setConfig={updateConfig} materialSlots={materialSlots} activeMaterialSlot={activeMaterialSlot} setActiveMaterialSlot={setActiveMaterialSlot} updateMaterialSlot={updateMaterialSlot} addMaterialSlot={addMaterialSlot} removeMaterialSlot={removeMaterialSlot} selectionCount={selectedIds.length} onReset={resetConfiguration} onShare={shareBuildList} onExport={downloadTxt} /></div></div>;
 }
