@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { BarChart3, Bell, ChevronDown, ClipboardList, Download, FlipHorizontal, Grid3X3, Group, Home, Map, MessageCircle, MousePointer2, PaintBucket, RotateCcw, RotateCw, Ruler, Search, Share2, UserRound, Users } from "lucide-react";
+import { BarChart3, Bell, ChevronDown, ClipboardList, Download, FlipHorizontal, Grid3X3, Group, Home, Map, MessageCircle, Minus, MousePointer2, PaintBucket, Plus, RotateCcw, RotateCw, Ruler, Search, Share2, UserRound, Users } from "lucide-react";
 
 const MODULE_MM = 50;
 const UNIT = 0.5;
@@ -77,9 +77,7 @@ const MATERIAL_ROLES = [
   { slot: 3, roleKey: "details", role: "Details", accent: "#25bfb7" }
 ];
 const DEFAULT_MATERIAL_SLOTS = [
-  { ...MATERIAL_ROLES[0], brand: "Bambu Lab", material: "PLA Matte", colorName: "Dark Grey", color: "#3a3a3a" },
-  { ...MATERIAL_ROLES[1], brand: "Bambu Lab", material: "PLA Matte", colorName: "Light Grey", color: "#b8b8b2" },
-  { ...MATERIAL_ROLES[2], brand: "Bambu Lab", material: "PLA Matte", colorName: "Black", color: "#111111" }
+  { ...MATERIAL_ROLES[0], roleKey: "material_1", brand: "Bambu Lab", material: "PLA Matte", colorName: "Dark Grey", color: "#3a3a3a" }
 ];
 
 const CATALOG = [
@@ -152,7 +150,12 @@ function getMaterialBrands() { return Object.keys(MATERIAL_LIBRARY); }
 function getMaterialsForBrand(brand) { return Object.keys(MATERIAL_LIBRARY[brand] || {}); }
 function getColorsForMaterial(brand, material) { return MATERIAL_LIBRARY[brand] && MATERIAL_LIBRARY[brand][material] ? MATERIAL_LIBRARY[brand][material] : []; }
 function getMaterialColor(brand, material, colorName) { return getColorsForMaterial(brand, material).find((entry) => entry.name === colorName) || getColorsForMaterial(brand, material)[0] || { name: "Black", color: "#111111" }; }
-function makeMaterialLabel(slot) { return `${slot.colorName} ${slot.material} ${slot.brand}`; }
+function makeMaterialLabel(slot) { return `${slot.material} ${slot.brand}`; }
+function makeMaterialSlot(slotNumber) {
+  const base = DEFAULT_MATERIAL_SLOTS[(slotNumber - 1) % DEFAULT_MATERIAL_SLOTS.length];
+  const role = MATERIAL_ROLES[(slotNumber - 1) % MATERIAL_ROLES.length] || MATERIAL_ROLES[0];
+  return { ...base, ...role, slot: slotNumber, roleKey: `material_${slotNumber}` };
+}
 function getReadableTextColor(hexColor) {
   const value = String(hexColor || "#111111").replace("#", "");
   const full = value.length === 3 ? value.split("").map((char) => char + char).join("") : value.padEnd(6, "0").slice(0, 6);
@@ -933,8 +936,8 @@ function TopSelect({ label, value, onChange, children }) {
   return <label className="topSelect"><span className="topSelectLabel">{label}</span><select value={value} onChange={(event) => onChange(event.target.value)}>{children}</select><ChevronDown className="topIcon" aria-hidden="true" /></label>;
 }
 
-function AppTopBar({ config, setConfig, activeTab, setActiveTab }) {
-  return <header className="appTopBar"><div className="brandLockup"><span className="brandMark" /><span>Modular</span></div><div className="topFilterRow"><TopSelect label="Layout" value={activeTab} onChange={setActiveTab}><option value="library">Library</option><option value="print">Build</option><option value="assets">Assets</option></TopSelect><TopSelect label="Theme" value={config.theme} onChange={(theme) => setConfig({ theme })}>{THEME_OPTIONS.map((theme) => <option key={theme}>{theme}</option>)}</TopSelect><TopSelect label="Scale" value={config.scale} onChange={(scale) => setConfig({ scale })}>{SCALE_OPTIONS.map((scale) => <option key={scale}>{scale}</option>)}</TopSelect><TopSelect label="Units" value={config.units} onChange={(units) => setConfig({ units })}>{UNIT_OPTIONS.map((unit) => <option key={unit.value} value={unit.value}>{unit.label}</option>)}</TopSelect></div><div className="topProfileRow"><button className="roundAction"><MessageCircle className="topIcon" aria-hidden="true" /></button><button className="roundAction"><Bell className="topIcon" aria-hidden="true" /></button><button className="userPill"><span className="avatar"><UserRound className="topIcon" aria-hidden="true" /></span><span><b>Builder</b><small>{config.scale}</small></span><ChevronDown className="topIcon" aria-hidden="true" /></button></div></header>;
+function AppTopBar({ config, setConfig }) {
+  return <header className="appTopBar"><div className="brandLockup"><span className="brandMark" /><span>Modular</span></div><div className="topFilterRow"><TopSelect label="Theme" value={config.theme} onChange={(theme) => setConfig({ theme })}>{THEME_OPTIONS.map((theme) => <option key={theme}>{theme}</option>)}</TopSelect><TopSelect label="Scale" value={config.scale} onChange={(scale) => setConfig({ scale })}>{SCALE_OPTIONS.map((scale) => <option key={scale}>{scale}</option>)}</TopSelect><TopSelect label="Units" value={config.units} onChange={(units) => setConfig({ units })}>{UNIT_OPTIONS.map((unit) => <option key={unit.value} value={unit.value}>{unit.label}</option>)}</TopSelect></div><div className="topProfileRow"><button className="roundAction"><MessageCircle className="topIcon" aria-hidden="true" /></button><button className="roundAction"><Bell className="topIcon" aria-hidden="true" /></button><button className="userPill"><span className="avatar"><UserRound className="topIcon" aria-hidden="true" /></span><span><b>Builder</b><small>{config.scale}</small></span><ChevronDown className="topIcon" aria-hidden="true" /></button></div></header>;
 }
 
 function SideRail() {
@@ -988,18 +991,28 @@ function Toggle({ label, value, onChange }) {
   return <div className="toggleRow"><span>{label}</span><button className={value ? "toggle on" : "toggle"} onClick={() => onChange(!value)}>{value ? "Yes" : "No"}</button></div>;
 }
 
-function MaterialPalette({ materialSlots, activeMaterialSlot, setActiveMaterialSlot, updateMaterialSlot }) {
+function MaterialPalette({ materialSlots, activeMaterialSlot, setActiveMaterialSlot, updateMaterialSlot, addMaterialSlot, removeMaterialSlot }) {
   const [collapsedSlots, setCollapsedSlots] = useState({});
+  const allCollapsed = materialSlots.length > 0 && materialSlots.every((slot) => collapsedSlots[slot.slot]);
+
   function toggleCollapsed(slotNumber) {
     setCollapsedSlots((previous) => ({ ...previous, [slotNumber]: !previous[slotNumber] }));
   }
 
-  return <section className="settingsBlock materialBlock"><div className="materialHeader"><div className="settingsTitle">Material</div></div><div className="materialList">{materialSlots.map((slot) => { const active = slot.slot === activeMaterialSlot; const collapsed = Boolean(collapsedSlots[slot.slot]); const brandMaterials = getMaterialsForBrand(slot.brand); const colorOptions = getColorsForMaterial(slot.brand, slot.material); return <div className={cx("materialRole", active ? "active" : "", collapsed ? "collapsed" : "")} key={slot.roleKey} onClick={() => setActiveMaterialSlot(slot.slot)}><div className="materialRoleHeader"><span className="materialIndex" style={{ background: slot.accent, color: getReadableTextColor(slot.accent) }}>{slot.slot}</span><button className="materialPreview" style={{ "--material-color": slot.color }} onClick={() => setActiveMaterialSlot(slot.slot)} title={makeMaterialLabel(slot)} /><span className="materialSummary">{makeMaterialLabel(slot)}</span><button className="materialCollapse" onClick={(event) => { event.stopPropagation(); toggleCollapsed(slot.slot); }} title={collapsed ? "Expand material" : "Collapse material"}><ChevronDown className="buttonIcon" aria-hidden="true" /></button></div>{collapsed ? null : <><div className="materialRoleBody"><div className="materialControls"><label><span>Brand</span><select value={slot.brand} onChange={(event) => updateMaterialSlot(slot.slot, { brand: event.target.value })}>{getMaterialBrands().map((brand) => <option key={brand}>{brand}</option>)}</select></label><label><span>Material</span><select value={slot.material} onChange={(event) => updateMaterialSlot(slot.slot, { material: event.target.value })}>{brandMaterials.map((material) => <option key={material}>{material}</option>)}</select></label><label><span>Color</span><select value={slot.colorName} onChange={(event) => updateMaterialSlot(slot.slot, { colorName: event.target.value })}>{colorOptions.map((entry) => <option key={entry.name}>{entry.name}</option>)}</select></label><div className="materialHex">{slot.color}</div></div></div><div className="swatchRow">{colorOptions.map((entry) => <button key={entry.name} className={cx("swatch", entry.name === slot.colorName ? "active" : "")} style={{ "--swatch": entry.color }} onClick={(event) => { event.stopPropagation(); updateMaterialSlot(slot.slot, { colorName: entry.name }); }} title={entry.name} />)}</div></>}</div>; })}</div></section>;
+  function toggleAllMaterials() {
+    if (allCollapsed) {
+      setCollapsedSlots({});
+      return;
+    }
+    setCollapsedSlots(Object.fromEntries(materialSlots.map((slot) => [slot.slot, true])));
+  }
+
+  return <section className="settingsBlock materialBlock"><div className="materialHeader"><div className="settingsTitle">Material</div><div className="materialActions"><button className="materialAction" onClick={removeMaterialSlot} disabled={materialSlots.length <= 1} title="Remove last material"><Minus className="buttonIcon" aria-hidden="true" /></button><button className="materialAction" onClick={addMaterialSlot} disabled={materialSlots.length >= 8} title="Add material"><Plus className="buttonIcon" aria-hidden="true" /></button><button className={cx("materialAction", allCollapsed ? "collapsed" : "")} onClick={toggleAllMaterials} title={allCollapsed ? "Expand all materials" : "Collapse all materials"}><ChevronDown className="buttonIcon" aria-hidden="true" /></button></div></div><div className="materialList">{materialSlots.map((slot) => { const active = slot.slot === activeMaterialSlot; const collapsed = Boolean(collapsedSlots[slot.slot]); const brandMaterials = getMaterialsForBrand(slot.brand); const colorOptions = getColorsForMaterial(slot.brand, slot.material); return <div className={cx("materialRole", active ? "active" : "", collapsed ? "collapsed" : "")} key={slot.roleKey} onClick={() => setActiveMaterialSlot(slot.slot)}><div className="materialRoleHeader"><button className="materialPreview" style={{ "--material-color": slot.color }} onClick={() => setActiveMaterialSlot(slot.slot)} title={makeMaterialLabel(slot)} /><span className="materialSummary">{makeMaterialLabel(slot)}</span><button className="materialCollapse" onClick={(event) => { event.stopPropagation(); toggleCollapsed(slot.slot); }} title={collapsed ? "Expand material" : "Collapse material"}><ChevronDown className="buttonIcon" aria-hidden="true" /></button></div>{collapsed ? null : <><div className="materialRoleBody"><div className="materialControls"><label><span>Brand</span><select value={slot.brand} onChange={(event) => updateMaterialSlot(slot.slot, { brand: event.target.value })}>{getMaterialBrands().map((brand) => <option key={brand}>{brand}</option>)}</select></label><label><span>Material</span><select value={slot.material} onChange={(event) => updateMaterialSlot(slot.slot, { material: event.target.value })}>{brandMaterials.map((material) => <option key={material}>{material}</option>)}</select></label><label><span>Color</span><select value={slot.colorName} onChange={(event) => updateMaterialSlot(slot.slot, { colorName: event.target.value })}>{colorOptions.map((entry) => <option key={entry.name}>{entry.name}</option>)}</select></label></div></div><div className="swatchRow">{colorOptions.map((entry) => <button key={entry.name} className={cx("swatch", entry.name === slot.colorName ? "active" : "")} style={{ "--swatch": entry.color }} onClick={(event) => { event.stopPropagation(); updateMaterialSlot(slot.slot, { colorName: entry.name }); }} title={entry.name} />)}</div></>}</div>; })}</div></section>;
 }
 
-function RightPanel({ config, setConfig, materialSlots, activeMaterialSlot, setActiveMaterialSlot, updateMaterialSlot, selectionCount, onReset, onShare, onExport }) {
+function RightPanel({ config, setConfig, materialSlots, activeMaterialSlot, setActiveMaterialSlot, updateMaterialSlot, addMaterialSlot, removeMaterialSlot, selectionCount, onReset, onShare, onExport }) {
   const moduleHint = formatMeasure(MODULE_MM, config.units) + " module";
-  return <aside className="rightPanel"><div className="panelHeader inspectorHeader"><div><div className="panelTitle">Inspector</div><div className="panelSub">{selectionCount} selected tile{selectionCount === 1 ? "" : "s"}</div></div><button className="iconButton" onClick={onReset} title="Reset Configuration"><RotateCcw className="buttonIcon" aria-hidden="true" /></button></div><div className="panelScroll settingsScroll"><MaterialPalette materialSlots={materialSlots} activeMaterialSlot={activeMaterialSlot} setActiveMaterialSlot={setActiveMaterialSlot} updateMaterialSlot={updateMaterialSlot} /><section className="settingsBlock stack"><div className="settingsTitle">Grid</div><Stepper label="Width" value={config.width} min={1} max={10} hint={moduleHint} onChange={(value) => setConfig({ width: value })} /><Stepper label="Depth" value={config.depth} min={1} max={10} hint={moduleHint} onChange={(value) => setConfig({ depth: value })} /><Stepper label="Height" value={config.height} min={1} max={8} hint={moduleHint} onChange={(value) => setConfig({ height: value })} /><div className="sizeBox">Size: <b>{formatConfigSize(config)}</b></div></section><section className="settingsBlock stack"><div className="settingsTitle">Walls</div><Toggle label="Back Wall" value={config.backWall} onChange={(value) => setConfig({ backWall: value })} /><Toggle label="Left Wall" value={config.leftWall} onChange={(value) => setConfig({ leftWall: value })} /><Toggle label="Right Wall" value={config.rightWall} onChange={(value) => setConfig({ rightWall: value })} /></section></div><div className="panelFooter twoButtons"><button className="panelButton" onClick={onShare}><Share2 className="buttonIcon" aria-hidden="true" />Share</button><button className="panelButton primary" onClick={onExport}><Download className="buttonIcon" aria-hidden="true" />Export</button></div></aside>;
+  return <aside className="rightPanel"><div className="panelHeader inspectorHeader"><div><div className="panelTitle">Inspector</div><div className="panelSub">{selectionCount} selected tile{selectionCount === 1 ? "" : "s"}</div></div><button className="iconButton" onClick={onReset} title="Reset Configuration"><RotateCcw className="buttonIcon" aria-hidden="true" /></button></div><div className="panelScroll settingsScroll"><MaterialPalette materialSlots={materialSlots} activeMaterialSlot={activeMaterialSlot} setActiveMaterialSlot={setActiveMaterialSlot} updateMaterialSlot={updateMaterialSlot} addMaterialSlot={addMaterialSlot} removeMaterialSlot={removeMaterialSlot} /><section className="settingsBlock stack"><div className="settingsTitle">Grid</div><Stepper label="Width" value={config.width} min={1} max={10} hint={moduleHint} onChange={(value) => setConfig({ width: value })} /><Stepper label="Depth" value={config.depth} min={1} max={10} hint={moduleHint} onChange={(value) => setConfig({ depth: value })} /><Stepper label="Height" value={config.height} min={1} max={8} hint={moduleHint} onChange={(value) => setConfig({ height: value })} /><div className="sizeBox">Size: <b>{formatConfigSize(config)}</b></div></section><section className="settingsBlock stack"><div className="settingsTitle">Walls</div><Toggle label="Back Wall" value={config.backWall} onChange={(value) => setConfig({ backWall: value })} /><Toggle label="Left Wall" value={config.leftWall} onChange={(value) => setConfig({ leftWall: value })} /><Toggle label="Right Wall" value={config.rightWall} onChange={(value) => setConfig({ rightWall: value })} /></section></div><div className="panelFooter twoButtons"><button className="panelButton" onClick={onShare}><Share2 className="buttonIcon" aria-hidden="true" />Share</button><button className="panelButton primary" onClick={onExport}><Download className="buttonIcon" aria-hidden="true" />Export</button></div></aside>;
 }
 
 function Toolbar({ activeTool, setActiveTool, selectedCount, showRuler, setShowRuler, showGrid, setShowGrid, onGroup, onRotate, onFlip, onPaint }) {
@@ -1129,6 +1142,24 @@ export default function App() {
       return slot;
     }));
     setActiveMaterialSlot(slotNumber);
+  }
+
+  function addMaterialSlot() {
+    setMaterialSlots((previousSlots) => {
+      if (previousSlots.length >= 8) return previousSlots;
+      const nextSlot = previousSlots.length + 1;
+      setActiveMaterialSlot(nextSlot);
+      return previousSlots.concat(makeMaterialSlot(nextSlot));
+    });
+  }
+
+  function removeMaterialSlot() {
+    setMaterialSlots((previousSlots) => {
+      if (previousSlots.length <= 1) return previousSlots;
+      const nextSlots = previousSlots.slice(0, -1);
+      setActiveMaterialSlot((slot) => Math.min(slot, nextSlots[nextSlots.length - 1].slot));
+      return nextSlots;
+    });
   }
 
   function applyLibraryModel(actionKey) {
@@ -1289,22 +1320,28 @@ export default function App() {
     .materialBlock { padding: 13px; }
     .materialHeader { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #e8e5df; }
     .materialHeader .settingsTitle { margin-bottom: 0; font-size: 13px; }
-    .materialCollapse { width: var(--icon-button-size); height: var(--icon-button-size); border: 1px solid #e8e5df; border-radius: 12px; background: #ffffff; color: #555555; display: grid; place-items: center; flex: 0 0 auto; }
+    .materialActions { display: flex; align-items: center; gap: 6px; }
+    .materialAction { width: 28px; height: 28px; border: 1px solid #e8e5df; border-radius: 9px; background: #ffffff; color: #555555; display: grid; place-items: center; }
+    .materialAction .buttonIcon, .materialCollapse .buttonIcon { width: 14px; height: 14px; }
+    .materialAction:hover { background: #f2f2f2; color: #111111; }
+    .materialAction:disabled { opacity: 0.38; cursor: default; }
+    .materialAction:disabled:hover { background: #ffffff; color: #555555; }
+    .materialAction.collapsed .buttonIcon { transform: rotate(-90deg); }
+    .materialCollapse { width: 28px; height: 28px; border: 1px solid #e8e5df; border-radius: 9px; background: #ffffff; color: #555555; display: grid; place-items: center; flex: 0 0 auto; }
     .materialRole.collapsed .materialCollapse .buttonIcon { transform: rotate(-90deg); }
     .materialList { display: flex; flex-direction: column; gap: 12px; }
     .materialRole { border-bottom: 1px solid #e8e5df; padding-bottom: 12px; }
     .materialRole:last-child { border-bottom: 0; padding-bottom: 0; }
-    .materialRoleHeader { display: grid; grid-template-columns: var(--icon-button-size) var(--icon-button-size) minmax(0, 1fr) var(--icon-button-size); align-items: center; gap: 8px; margin-bottom: 12px; }
+    .materialRoleHeader { display: grid; grid-template-columns: 32px minmax(0, 1fr) 28px; align-items: center; gap: 8px; margin-bottom: 12px; }
     .materialRole.collapsed .materialRoleHeader { margin-bottom: 0; }
-    .materialIndex { width: var(--icon-button-size); height: var(--icon-button-size); border-radius: 12px; display: grid; place-items: center; font-size: 15px; font-weight: 800; letter-spacing: -0.02em; box-shadow: inset 0 1px 0 rgba(255,255,255,0.55); }
-    .materialSummary { min-width: 0; color: #111111; font-size: 13px; line-height: 1.08; font-weight: 800; letter-spacing: -0.025em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .materialSummary { min-width: 0; color: #555555; font-size: 12px; line-height: 1.2; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .materialRoleBody { display: block; padding-left: 0; }
-    .materialPreview { width: var(--icon-button-size); height: var(--icon-button-size); border: 1px solid rgba(17,17,17,0.1); border-radius: 12px; background: radial-gradient(circle at 24% 18%, rgba(255,255,255,0.34), transparent 28%), linear-gradient(145deg, color-mix(in srgb, var(--material-color), #ffffff 8%), color-mix(in srgb, var(--material-color), #000000 12%)); box-shadow: 0 10px 20px rgba(33,35,38,0.1), inset 0 1px 0 rgba(255,255,255,0.32); }
+    .materialPreview { width: 32px; height: 32px; border: 1px solid rgba(17,17,17,0.1); border-radius: 10px; background: radial-gradient(circle at 24% 18%, rgba(255,255,255,0.34), transparent 28%), linear-gradient(145deg, color-mix(in srgb, var(--material-color), #ffffff 8%), color-mix(in srgb, var(--material-color), #000000 12%)); box-shadow: 0 10px 20px rgba(33,35,38,0.1), inset 0 1px 0 rgba(255,255,255,0.32); }
+    .materialRole.active .materialPreview { border: 2px solid #111111; box-shadow: inset 0 0 0 2px #ffffff, 0 10px 20px rgba(33,35,38,0.1); }
     .materialControls { display: grid; gap: 6px; min-width: 0; }
     .materialControls label { display: grid; grid-template-columns: 68px minmax(0, 1fr); align-items: center; gap: 8px; }
-    .materialControls label span { color: #555555; font-size: 12px; font-weight: 800; letter-spacing: -0.015em; }
-    .materialControls select { height: 34px; min-width: 0; border-radius: 13px; background: #ffffff; font-size: 13px; font-weight: 800; padding: 0 10px; }
-    .materialHex { margin-left: 76px; margin-top: -2px; color: #b0aaa2; font-size: 10px; font-weight: 700; letter-spacing: -0.01em; }
+    .materialControls label span { color: #555555; font-size: 12px; font-weight: 600; letter-spacing: -0.01em; }
+    .materialControls select { height: 28px; min-width: 0; border-radius: 9px; background: #ffffff; color: #777777; font-size: 11px; font-weight: 400; padding: 0 9px; }
     .swatchRow { display: flex; flex-wrap: wrap; gap: 12px; margin-left: 0; margin-top: 14px; }
     .swatch { width: 24px; height: 24px; border: 1px solid rgba(17,17,17,0.08); border-radius: 999px; background: var(--swatch); box-shadow: inset 0 1px 0 rgba(255,255,255,0.42); }
     .swatch.active { outline: 2px solid #111111; outline-offset: 3px; }
@@ -1360,5 +1397,5 @@ export default function App() {
       .floatingToolbar { top: calc(50vh - 23px); }
       .viewportBadge { display: none; }
     }
-  `}</style><AppTopBar config={config} setConfig={updateConfig} activeTab={activeTab} setActiveTab={setActiveTab} /><div className="mainLayout"><SideRail /><LeftPanel activeTab={activeTab} setActiveTab={setActiveTab} printList={printList} onApplyLibraryItem={applyLibraryModel} onCopy={copyBuildList} onDownload={downloadTxt} /><Viewport config={config} tiles={tiles} setTiles={setTiles} selectedIds={selectedIds} setSelectedIds={setSelectedIds} activeColor={activeColor} activeMaterialSlot={activeMaterial.slot} activeMaterialLabel={activeMaterialLabel} showRuler={showRuler} setShowRuler={setShowRuler} showGrid={showGrid} setShowGrid={setShowGrid} /><RightPanel config={config} setConfig={updateConfig} materialSlots={materialSlots} activeMaterialSlot={activeMaterialSlot} setActiveMaterialSlot={setActiveMaterialSlot} updateMaterialSlot={updateMaterialSlot} selectionCount={selectedIds.length} onReset={resetConfiguration} onShare={shareBuildList} onExport={downloadTxt} /></div></div>;
+  `}</style><AppTopBar config={config} setConfig={updateConfig} /><div className="mainLayout"><SideRail /><LeftPanel activeTab={activeTab} setActiveTab={setActiveTab} printList={printList} onApplyLibraryItem={applyLibraryModel} onCopy={copyBuildList} onDownload={downloadTxt} /><Viewport config={config} tiles={tiles} setTiles={setTiles} selectedIds={selectedIds} setSelectedIds={setSelectedIds} activeColor={activeColor} activeMaterialSlot={activeMaterial.slot} activeMaterialLabel={activeMaterialLabel} showRuler={showRuler} setShowRuler={setShowRuler} showGrid={showGrid} setShowGrid={setShowGrid} /><RightPanel config={config} setConfig={updateConfig} materialSlots={materialSlots} activeMaterialSlot={activeMaterialSlot} setActiveMaterialSlot={setActiveMaterialSlot} updateMaterialSlot={updateMaterialSlot} addMaterialSlot={addMaterialSlot} removeMaterialSlot={removeMaterialSlot} selectionCount={selectedIds.length} onReset={resetConfiguration} onShare={shareBuildList} onExport={downloadTxt} /></div></div>;
 }
