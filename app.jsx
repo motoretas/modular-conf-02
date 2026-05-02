@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { BarChart3, Bell, ChevronDown, ClipboardList, Download, FlipHorizontal, Grid3X3, Group, Home, Library, Map, MessageCircle, MousePointer2, PaintBucket, RotateCcw, RotateCw, Ruler, Search, Share2, UserRound, Users } from "lucide-react";
+import { BarChart3, Bell, ChevronDown, ClipboardList, Download, FlipHorizontal, Grid3X3, Group, Home, Library, Map, MessageCircle, MousePointer2, PaintBucket, RotateCcw, RotateCw, Ruler, Share2, UserRound, Users } from "lucide-react";
 
 const MODULE_MM = 50;
 const UNIT = 0.5;
@@ -306,7 +306,7 @@ function createTextSprite(text, color) {
   canvas.height = 128;
   const context = canvas.getContext("2d");
   context.clearRect(0, 0, canvas.width, canvas.height);
-  context.font = "600 48px Arial";
+  context.font = "700 48px Inter, system-ui, sans-serif";
   context.textAlign = "center";
   context.textBaseline = "middle";
   context.fillStyle = color;
@@ -462,10 +462,82 @@ function ThreeViewport({ config, tiles, selectedIds, onSelectTile, clearSelectio
       return new THREE.Line(geometry, material);
     }
 
-    function makeSphere(position, color) {
-      const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.018, 12, 12), new THREE.MeshBasicMaterial({ color }));
-      mesh.position.set(position[0], position[1], position[2]);
+    function makeDimensionText(text, plane = "xz") {
+      const canvas = document.createElement("canvas");
+      canvas.width = 512;
+      canvas.height = 128;
+      const context = canvas.getContext("2d");
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.font = "700 48px Inter, system-ui, sans-serif";
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillStyle = "#111111";
+      context.fillText(text, 256, 64);
+      const texture = new THREE.CanvasTexture(canvas);
+      const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthTest: true, depthWrite: false, side: THREE.DoubleSide });
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.105), material);
+      if (plane === "xz") {
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.position.y = 0.012;
+      } else {
+        mesh.position.z = 0.012;
+      }
       return mesh;
+    }
+
+    function makeDimensionArrow(direction, color, plane = "xz") {
+      const length = 0.075;
+      const halfWidth = 0.026;
+      const vertices = plane === "xz"
+        ? direction > 0
+          ? [0, 0, 0, -length, 0, -halfWidth, -length, 0, halfWidth]
+          : [0, 0, 0, length, 0, -halfWidth, length, 0, halfWidth]
+        : direction > 0
+          ? [0, 0, 0, -length, -halfWidth, 0, -length, halfWidth, 0]
+          : [0, 0, 0, length, -halfWidth, 0, length, halfWidth, 0];
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+      geometry.computeVertexNormals();
+      return new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, depthTest: true, depthWrite: false }));
+    }
+
+    function makeDimensionGroup(length, label, color, plane = "xz") {
+      const group = new THREE.Group();
+      const half = length / 2;
+      const arrowInset = 0.065;
+      const textGap = Math.min(length * 0.54, 0.5);
+      const inner = textGap / 2;
+      const leftStart = -half + arrowInset;
+      const rightEnd = half - arrowInset;
+      if (leftStart < -inner) group.add(line([[leftStart, 0, 0], [-inner, 0, 0]], color));
+      if (inner < rightEnd) group.add(line([[inner, 0, 0], [rightEnd, 0, 0]], color));
+      const leftArrow = makeDimensionArrow(-1, color, plane);
+      const rightArrow = makeDimensionArrow(1, color, plane);
+      leftArrow.position.x = -half;
+      rightArrow.position.x = half;
+      group.add(leftArrow, rightArrow, makeDimensionText(label, plane));
+      return group;
+    }
+
+    function addFlatDimension(start, end, label, color) {
+      const a = new THREE.Vector3(start[0], start[1], start[2]);
+      const b = new THREE.Vector3(end[0], end[1], end[2]);
+      const delta = b.clone().sub(a);
+      const length = Math.sqrt(delta.x * delta.x + delta.z * delta.z);
+      const group = makeDimensionGroup(length, label, color, "xz");
+      group.position.copy(a.clone().add(b).multiplyScalar(0.5));
+      group.rotation.y = -Math.atan2(delta.z, delta.x);
+      rulerRoot.add(group);
+    }
+
+    function addVerticalDimension(start, end, label, color) {
+      const a = new THREE.Vector3(start[0], start[1], start[2]);
+      const b = new THREE.Vector3(end[0], end[1], end[2]);
+      const length = Math.abs(b.y - a.y);
+      const group = makeDimensionGroup(length, label, color, "xy");
+      group.position.copy(a.clone().add(b).multiplyScalar(0.5));
+      group.rotation.z = Math.PI / 2;
+      rulerRoot.add(group);
     }
 
     function buildRulers(currentConfig, visible) {
@@ -474,28 +546,19 @@ function ThreeViewport({ config, tiles, selectedIds, onSelectTile, clearSelectio
       const width = currentConfig.width * UNIT;
       const depth = currentConfig.depth * UNIT;
       const height = currentConfig.height * UNIT;
-      const blue = "#60a5fa";
+      const measurement = "#9ca3af";
       const hasWall = currentConfig.backWall || currentConfig.leftWall || currentConfig.rightWall;
       const widthA = [-width / 2, 0.055, depth / 2 + 0.2];
       const widthB = [width / 2, 0.055, depth / 2 + 0.2];
       const depthA = [width / 2 + 0.2, 0.055, -depth / 2];
       const depthB = [width / 2 + 0.2, 0.055, depth / 2];
-      rulerRoot.add(line([widthA, widthB], blue), makeSphere(widthA, blue), makeSphere(widthB, blue));
-      const widthText = createTextSprite(currentConfig.width * MODULE_MM + " mm", blue);
-      widthText.position.set(0, 0.12, depth / 2 + 0.2);
-      rulerRoot.add(widthText);
-      rulerRoot.add(line([depthA, depthB], blue), makeSphere(depthA, blue), makeSphere(depthB, blue));
-      const depthText = createTextSprite(currentConfig.depth * MODULE_MM + " mm", blue);
-      depthText.position.set(width / 2 + 0.28, 0.12, 0);
-      rulerRoot.add(depthText);
+      addFlatDimension(widthA, widthB, currentConfig.width * MODULE_MM + " mm", measurement);
+      addFlatDimension(depthA, depthB, currentConfig.depth * MODULE_MM + " mm", measurement);
       if (hasWall) {
         const backPlaneZ = -depth / 2 - 0.13;
         const heightA = [-width / 2 - 0.18, 0, backPlaneZ];
         const heightB = [-width / 2 - 0.18, height, backPlaneZ];
-        rulerRoot.add(line([heightA, heightB], blue), makeSphere(heightA, blue), makeSphere(heightB, blue));
-        const heightText = createTextSprite(currentConfig.height * MODULE_MM + " mm", blue);
-        heightText.position.set(-width / 2 - 0.28, height / 2, backPlaneZ);
-        rulerRoot.add(heightText);
+        addVerticalDimension(heightA, heightB, currentConfig.height * MODULE_MM + " mm", measurement);
       }
     }
 
@@ -747,7 +810,7 @@ if (typeof window !== "undefined" && !window.__MODULAR_DIORAMA_THREE_VANILLA_TES
 function MiniIcon({ Icon }) { return <Icon className="miniIcon" aria-hidden="true" strokeWidth={2} />; }
 
 function AppTopBar({ theme, scale }) {
-  return <header className="appTopBar"><div className="brandLockup"><span className="brandMark" /><span>Modular</span></div><div className="searchPill"><Search className="topIcon" aria-hidden="true" /><span>Search</span></div><div className="topFilterRow"><button className="topPill">Layout <ChevronDown className="topIcon" aria-hidden="true" /></button><button className="topPill">Theme <span>{theme}</span><ChevronDown className="topIcon" aria-hidden="true" /></button><button className="topPill">Units <span>mm</span></button></div><div className="topProfileRow"><button className="roundAction active"><MessageCircle className="topIcon" aria-hidden="true" /></button><button className="roundAction"><Bell className="topIcon" aria-hidden="true" /></button><button className="userPill"><span className="avatar"><UserRound className="topIcon" aria-hidden="true" /></span><span><b>Builder</b><small>{scale}</small></span><ChevronDown className="topIcon" aria-hidden="true" /></button></div></header>;
+  return <header className="appTopBar"><div className="brandLockup"><span className="brandMark" /><span>Modular</span></div><div className="topFilterRow"><button className="topPill">Layout <ChevronDown className="topIcon" aria-hidden="true" /></button><button className="topPill">Theme <span>{theme}</span><ChevronDown className="topIcon" aria-hidden="true" /></button><button className="topPill">Units <span>mm</span></button></div><div className="topProfileRow"><button className="roundAction"><MessageCircle className="topIcon" aria-hidden="true" /></button><button className="roundAction"><Bell className="topIcon" aria-hidden="true" /></button><button className="userPill"><span className="avatar"><UserRound className="topIcon" aria-hidden="true" /></span><span><b>Builder</b><small>{scale}</small></span><ChevronDown className="topIcon" aria-hidden="true" /></button></div></header>;
 }
 
 function SideRail() {
@@ -869,13 +932,13 @@ function Viewport({ config, tiles, setTiles, selectedIds, setSelectedIds, active
     setActiveTool("select");
   }
 
-  return <main className="viewport"><Toolbar activeTool={activeTool} setActiveTool={setActiveTool} showLibrary={showLibrary} setShowLibrary={setShowLibrary} showRuler={showRuler} setShowRuler={setShowRuler} showGrid={showGrid} setShowGrid={setShowGrid} onGroup={groupSelected} onRotate={rotateSelected} onFlip={flipSelected} onPaint={paintSelected} /><LibraryPopup show={showLibrary} onApply={applyLibraryModel} /><div className="viewportBadge">{config.width * MODULE_MM} × {config.depth * MODULE_MM} × {config.height * MODULE_MM} mm</div><ThreeViewport config={config} tiles={tiles} selectedIds={selectedIds} onSelectTile={onSelectTile} clearSelection={clearSelection} showRuler={showRuler} showGrid={showGrid} /><div className="mouseHelp">Left drag: orbit · Wheel: zoom · Right drag: pan · Shift/Ctrl click: multi-select</div><div className="viewSwitch"><button className="active">Perspective</button><button>Orthographic</button></div></main>;
+  return <main className="viewport"><Toolbar activeTool={activeTool} setActiveTool={setActiveTool} showLibrary={showLibrary} setShowLibrary={setShowLibrary} showRuler={showRuler} setShowRuler={setShowRuler} showGrid={showGrid} setShowGrid={setShowGrid} onGroup={groupSelected} onRotate={rotateSelected} onFlip={flipSelected} onPaint={paintSelected} /><LibraryPopup show={showLibrary} onApply={applyLibraryModel} /><div className="viewportBadge">{config.width * MODULE_MM} × {config.depth * MODULE_MM} × {config.height * MODULE_MM} mm</div><ThreeViewport config={config} tiles={tiles} selectedIds={selectedIds} onSelectTile={onSelectTile} clearSelection={clearSelection} showRuler={showRuler} showGrid={showGrid} /></main>;
 }
 
 export default function App() {
   const [config, setConfigState] = useState(DEFAULT_CONFIG);
   const [activeTab, setActiveTab] = useState("print");
-  const [activeColor, setActiveColor] = useState("#3b82f6");
+  const [activeColor, setActiveColor] = useState("#111111");
   const [selectedIds, setSelectedIds] = useState([]);
   const [showRuler, setShowRuler] = useState(true);
   const [showGrid, setShowGrid] = useState(true);
@@ -936,138 +999,137 @@ export default function App() {
   }
 
   return <div className="appShell"><style>{`
-    :root { --bg: #f5f3ef; --viewport: #f6f5f2; --panel: rgba(255,255,255,0.82); --panel2: rgba(255,255,255,0.72); --border: rgba(18,20,24,0.09); --text: #111216; --muted: #787c82; --blue: #111216; --blue2: #1f74ff; --measure: #5c6b7a; }
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+    :root { --bg: #f7f6f2; --viewport: #fbfaf7; --panel: rgba(255,255,255,0.88); --panel2: #ffffff; --border: #e8e5df; --text: #111111; --muted: #777777; --active: #111111; --soft: #f2f2f2; --measure: #111111; --frame-radius: 18px; }
     * { box-sizing: border-box; }
-    body { margin: 0; background: var(--bg); }
+    body { margin: 0; background: var(--bg); font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; line-height: 1.35; font-weight: 400; color: #111111; }
     button, select, input { font: inherit; }
     button { cursor: pointer; }
-    .appShell { width: 100vw; height: 100vh; overflow: hidden; display: flex; flex-direction: column; background: radial-gradient(circle at 52% 52%, rgba(255,255,255,0.98) 0 24%, rgba(250,248,244,0.92) 50%, rgba(234,229,221,0.9) 100%); color: var(--text); font-family: Inter, "SF Pro Display", "Helvetica Neue", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-optical-sizing: auto; -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision; }
-    .appTopBar { height: 86px; flex: 0 0 86px; display: grid; grid-template-columns: 170px minmax(240px, 380px) 1fr auto; align-items: center; gap: 24px; padding: 0 42px; position: relative; z-index: 40; }
-    .brandLockup { display: flex; align-items: center; gap: 11px; font-size: 17px; font-weight: 780; letter-spacing: -0.035em; }
+    .appShell { width: 100vw; height: 100vh; overflow: hidden; display: flex; flex-direction: column; background: radial-gradient(circle at 52% 52%, #ffffff 0 24%, #fbfaf7 50%, #f7f6f2 100%); color: var(--text); font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; line-height: 1.35; font-weight: 400; font-optical-sizing: auto; -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision; }
+    .appTopBar { height: 86px; flex: 0 0 86px; display: grid; grid-template-columns: 170px 1fr auto; align-items: center; gap: 24px; padding: 0 42px; position: relative; z-index: 40; }
+    .brandLockup { display: flex; align-items: center; gap: 11px; font-size: 18px; font-weight: 700; letter-spacing: -0.03em; }
     .brandMark { width: 30px; height: 30px; border-radius: 7px; background: #0d0e10; display: block; position: relative; box-shadow: 0 10px 22px rgba(0,0,0,0.12); }
     .brandMark::after { content: ""; position: absolute; inset: 8px; border-radius: 3px; background: #fff; }
-    .searchPill, .topPill, .roundAction, .userPill { border: 1px solid var(--border); background: rgba(255,255,255,0.72); box-shadow: 0 14px 35px rgba(33,35,38,0.06), inset 0 1px 0 rgba(255,255,255,0.82); }
-    .searchPill { height: 48px; border-radius: 999px; display: flex; align-items: center; gap: 12px; padding: 0 22px; color: #6f747a; font-size: 12px; font-weight: 610; }
+    .topPill, .roundAction, .userPill { border: 1px solid var(--border); background: rgba(255,255,255,0.72); box-shadow: 0 14px 35px rgba(33,35,38,0.06), inset 0 1px 0 rgba(255,255,255,0.82); }
     .topFilterRow, .topProfileRow { display: flex; align-items: center; gap: 16px; }
     .topFilterRow { justify-content: center; }
     .topProfileRow { justify-content: flex-end; }
-    .topPill { height: 48px; border-radius: 999px; padding: 0 22px; display: inline-flex; align-items: center; gap: 14px; color: #24262b; font-size: 12px; font-weight: 720; }
-    .topPill span { padding-left: 10px; border-left: 1px solid rgba(18,20,24,0.08); color: #4b4f56; }
-    .roundAction { width: 48px; height: 48px; border-radius: 999px; display: grid; place-items: center; color: #2a2d32; }
-    .roundAction.active { background: #1f74ff; border-color: #1f74ff; color: white; }
-    .userPill { height: 48px; border-radius: 999px; padding: 0 16px 0 8px; display: inline-flex; align-items: center; gap: 11px; color: #24262b; }
+    .topPill { height: 48px; border-radius: var(--frame-radius); padding: 0 22px; display: inline-flex; align-items: center; gap: 14px; color: #111111; font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
+    .topPill span { padding-left: 10px; border-left: 1px solid #e8e5df; color: #555555; }
+    .topPill:hover, .roundAction:hover, .userPill:hover, .railButton:hover, .toolButton:hover, .panelButton:hover, .iconButton:hover, .tab:hover, .libraryItem:hover { background: #f2f2f2; color: #111111; }
+    .roundAction { width: 48px; height: 48px; border-radius: var(--frame-radius); display: grid; place-items: center; color: #6f6f6f; background: #ffffff; }
+    .roundAction.active { background: #111111; border-color: #111111; color: #ffffff; }
+    .userPill { height: 48px; border-radius: var(--frame-radius); padding: 0 16px 0 8px; display: inline-flex; align-items: center; gap: 11px; color: #111111; }
     .userPill span:not(.avatar) { display: grid; gap: 1px; line-height: 1.05; }
-    .userPill b { font-size: 12.5px; font-weight: 760; letter-spacing: -0.02em; }
-    .userPill small { color: var(--muted); font-size: 10px; font-weight: 620; }
-    .avatar { width: 34px; height: 34px; border-radius: 999px; display: grid; place-items: center; background: linear-gradient(145deg, #2d7dff, #e7eef8); color: #111216; }
+    .userPill b { font-size: 13px; font-weight: 700; letter-spacing: -0.02em; }
+    .userPill small { color: #777777; font-size: 10px; font-weight: 400; }
+    .avatar { width: 34px; height: 34px; border-radius: 12px; display: grid; place-items: center; background: #111111; color: #ffffff; }
     .topIcon { width: 16px; height: 16px; stroke-width: 2.2; }
     .mainLayout { position: relative; flex: 1; min-height: 0; display: block; overflow: hidden; }
-    .sideRail { position: absolute; z-index: 28; left: 20px; top: 50%; transform: translateY(-50%); display: grid; gap: 18px; }
-    .railButton { width: 48px; height: 48px; border-radius: 999px; border: 1px solid var(--border); background: rgba(255,255,255,0.78); color: #6b7077; display: grid; place-items: center; box-shadow: 0 14px 35px rgba(33,35,38,0.08); }
-    .railButton.active { background: #1f74ff; border-color: #1f74ff; color: white; }
+    .sideRail { position: absolute; z-index: 28; left: 414px; top: 50%; transform: translateY(-50%); display: grid; gap: 18px; }
+    .railButton { width: 48px; height: 48px; border-radius: var(--frame-radius); border: 1px solid #e8e5df; background: #ffffff; color: #6f6f6f; display: grid; place-items: center; box-shadow: 0 14px 35px rgba(33,35,38,0.08); }
+    .railButton.active { background: #111111; border-color: #111111; color: #ffffff; }
     .railIcon { width: 19px; height: 19px; }
-    .panelButton:hover, .iconButton:hover { border-color: rgba(28,29,32,0.24); color: #15161a; background: rgba(255,255,255,0.56); }
-    .leftPanel, .rightPanel { position: absolute; z-index: 20; top: 22px; bottom: 22px; min-height: 0; display: flex; flex-direction: column; border: 1px solid rgba(18,20,24,0.07); border-radius: 24px; background: var(--panel); -webkit-backdrop-filter: blur(18px) saturate(118%); backdrop-filter: blur(18px) saturate(118%); box-shadow: 0 28px 72px rgba(33,35,38,0.11), 0 2px 8px rgba(33,35,38,0.04), inset 0 1px 0 rgba(255,255,255,0.92); overflow: hidden; }
-    .leftPanel { left: 94px; width: 348px; }
+    .panelButton:hover, .iconButton:hover { border-color: #e8e5df; color: #111111; background: #f2f2f2; }
+    .leftPanel, .rightPanel { position: absolute; z-index: 20; top: 22px; bottom: 22px; min-height: 0; display: flex; flex-direction: column; border: 1px solid #e8e5df; border-radius: var(--frame-radius); background: var(--panel); -webkit-backdrop-filter: blur(18px) saturate(118%); backdrop-filter: blur(18px) saturate(118%); box-shadow: 0 28px 72px rgba(33,35,38,0.11), 0 2px 8px rgba(33,35,38,0.04), inset 0 1px 0 rgba(255,255,255,0.92); overflow: hidden; }
+    .leftPanel { left: 42px; width: 348px; }
     .rightPanel { right: 42px; width: 322px; }
     .panelHeader { padding: 18px; border-bottom: 1px solid rgba(45,47,51,0.07); background: rgba(255,255,255,0.42); }
-    .panelTitle { font-size: 14px; font-weight: 760; letter-spacing: -0.02em; }
-    .leftPanel .panelTitle { font-size: 31px; line-height: 0.95; font-weight: 820; letter-spacing: -0.07em; }
-    .rightPanel .panelTitle { font-size: 15px; letter-spacing: -0.035em; }
-    .panelSub { margin-top: 3px; color: var(--muted); font-size: 10.5px; font-weight: 560; letter-spacing: -0.005em; }
-    .leftPanel .panelSub { margin-top: 10px; font-size: 14px; letter-spacing: -0.04em; }
+    .panelTitle { font-size: 14px; font-weight: 700; letter-spacing: -0.02em; }
+    .leftPanel .panelTitle { font-size: 30px; line-height: 1; font-weight: 800; letter-spacing: -0.045em; }
+    .rightPanel .panelTitle { font-size: 16px; font-weight: 800; letter-spacing: -0.025em; }
+    .panelSub { margin-top: 3px; color: #777777; font-size: 11px; font-weight: 400; letter-spacing: -0.005em; }
+    .leftPanel .panelSub { margin-top: 10px; font-size: 15px; line-height: 1.3; font-weight: 400; color: #7a7a7a; letter-spacing: -0.01em; }
     .tabs { display: flex; gap: 6px; margin-top: 12px; }
-    .tab { height: 42px; min-width: 82px; border: 1px solid var(--border); border-radius: 12px; padding: 0 18px; background: rgba(255,255,255,0.74); color: #2b2e33; font-size: 13px; font-weight: 760; letter-spacing: -0.035em; box-shadow: 0 10px 22px rgba(33,35,38,0.04); }
-    .tab.active { background: #050506; border-color: #050506; color: white; }
+    .tab { height: 42px; min-width: 82px; border: 1px solid #e8e5df; border-radius: 12px; padding: 0 18px; background: #ffffff; color: #111111; font-size: 14px; font-weight: 600; letter-spacing: -0.01em; box-shadow: 0 10px 22px rgba(33,35,38,0.04); }
+    .tabs .tab:first-child { font-weight: 700; }
+    .tabs .tab:last-child { font-weight: 600; }
+    .tab.active { background: #111111; border-color: #111111; color: #ffffff; }
     .panelScroll { flex: 1; min-height: 0; overflow: auto; padding: 12px; }
     .panelScroll::-webkit-scrollbar { width: 8px; }
     .panelScroll::-webkit-scrollbar-track { background: transparent; }
     .panelScroll::-webkit-scrollbar-thumb { background: rgba(38,40,44,0.18); border-radius: 99px; }
     .printGroup { border: 1px solid var(--border); border-radius: 16px; background: rgba(255,255,255,0.58); overflow: hidden; margin-bottom: 10px; }
-    .groupHeader { height: 34px; display: flex; align-items: center; justify-content: space-between; padding: 0 11px; border-bottom: 1px solid rgba(36,38,42,0.1); font-size: 11.5px; font-weight: 710; letter-spacing: -0.01em; }
-    .groupHeader span:last-child { color: var(--muted); font-size: 10px; }
+    .groupHeader { height: 34px; display: flex; align-items: center; justify-content: space-between; padding: 0 11px; border-bottom: 1px solid #e8e5df; }
+    .groupHeader span:first-child { font-size: 11px; line-height: 1; font-weight: 800; text-transform: uppercase; letter-spacing: -0.01em; }
+    .groupHeader span:last-child { color: #777777; font-size: 11px; font-weight: 600; }
     .groupBody { padding: 8px; }
-    .partCard, .assetCard { border: 1px solid rgba(36,38,42,0.08); border-radius: 14px; background: rgba(255,255,255,0.68); padding: 10px; margin-bottom: 8px; }
-    .partName, .assetName { font-size: 11.5px; font-weight: 620; letter-spacing: -0.01em; }
+    .partCard, .assetCard { border: 1px solid #e8e5df; border-radius: 14px; background: #ffffff; padding: 10px; margin-bottom: 8px; }
+    .partName, .assetName { font-size: 13px; line-height: 1.2; font-weight: 700; letter-spacing: -0.015em; }
     .partName b { color: var(--measure); }
-    .fileName, .assetId, .emptyLine { margin-top: 5px; color: var(--muted); font-size: 10px; word-break: break-all; }
+    .fileName, .assetId, .emptyLine { margin-top: 5px; color: #8a8a8a; font-size: 11px; line-height: 1.2; font-weight: 400; word-break: break-all; }
     .tagRow { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
-    .tag { border: 1px solid rgba(36,38,42,0.12); border-radius: 7px; padding: 3px 6px; color: var(--muted); font-size: 9.5px; font-weight: 650; line-height: 1; }
+    .tag { border: 1px solid #e8e5df; border-radius: 7px; padding: 3px 6px; color: #777777; font-size: 10px; line-height: 1; font-weight: 700; letter-spacing: -0.01em; }
     .tag.active { border-color: rgba(30,31,35,0.2); background: rgba(30,31,35,0.1); color: #303238; }
     .panelFooter { border-top: 1px solid rgba(45,47,51,0.08); padding: 12px; background: rgba(255,255,255,0.54); }
     .twoButtons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .panelButton, .iconButton { border: 1px solid var(--border); border-radius: 13px; background: rgba(255,255,255,0.78); color: #111216; font-size: 12px; font-weight: 760; min-height: 40px; letter-spacing: -0.035em; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
-    .panelButton.primary { background: #050506; border-color: #050506; color: white; }
+    .panelButton, .iconButton { border: 1px solid #e8e5df; border-radius: 13px; background: #ffffff; color: #111111; font-size: 13px; font-weight: 700; min-height: 40px; letter-spacing: -0.01em; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+    .panelButton.primary { background: #111111; border-color: #111111; color: #ffffff; }
     .buttonIcon { width: 15px; height: 15px; stroke-width: 2.3; }
     .inspectorHeader { display: flex; align-items: center; justify-content: space-between; }
     .iconButton { width: 31px; height: 31px; font-size: 15px; }
     .settingsScroll { display: flex; flex-direction: column; gap: 12px; }
     .settingsBlock { border: 1px solid var(--border); border-radius: 16px; background: rgba(255,255,255,0.58); padding: 13px; }
     .settingsBlock.stack { display: flex; flex-direction: column; gap: 10px; }
-    .settingsTitle { color: #3b3d42; text-transform: none; letter-spacing: -0.015em; font-size: 12px; font-weight: 760; margin-bottom: 10px; }
-    .label { display: block; color: var(--muted); font-size: 10.5px; font-weight: 620; margin-bottom: 5px; }
+    .settingsTitle { color: #111111; text-transform: none; letter-spacing: -0.01em; font-size: 12px; font-weight: 800; margin-bottom: 10px; }
+    .label { display: block; color: #555555; font-size: 12px; font-weight: 600; margin-bottom: 5px; }
     .label.withTop { margin-top: 10px; }
-    select { width: 100%; height: 33px; border: 1px solid var(--border); border-radius: 11px; background: rgba(255,255,255,0.36); color: var(--text); padding: 0 9px; font-size: 11.5px; font-weight: 650; outline: none; }
+    select { width: 100%; height: 33px; border: 1px solid #e8e5df; border-radius: 11px; background: #ffffff; color: #111111; padding: 0 9px; font-size: 13px; font-weight: 600; letter-spacing: -0.01em; outline: none; }
     .colorRow { display: flex; align-items: center; gap: 9px; }
     .colorRow input { width: 46px; height: 32px; border: 1px solid var(--border); border-radius: 8px; background: transparent; }
-    .colorRow span { color: var(--muted); font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .colorRow span { color: #777777; font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
     .stepperRow, .toggleRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-    .fieldTitle, .toggleRow span { font-size: 11.5px; font-weight: 690; color: var(--text); letter-spacing: -0.01em; }
-    .fieldHint { margin-top: 2px; color: var(--muted); font-size: 10px; }
-    .stepper { height: 30px; display: grid; grid-template-columns: 28px 44px 28px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: rgba(255,255,255,0.34); }
-    .stepper button { border: 0; background: transparent; color: var(--muted); }
-    .stepper button:hover { color: #17181b; background: rgba(255,255,255,0.48); }
-    .stepper span { display: grid; place-items: center; border-left: 1px solid var(--border); border-right: 1px solid var(--border); font-size: 12px; }
-    .toggle { width: 64px; height: 29px; border: 1px solid var(--border); border-radius: 10px; background: rgba(255,255,255,0.34); color: var(--muted); font-size: 11.5px; font-weight: 690; }
-    .toggle.on { background: #1d1e22; border-color: rgba(0,0,0,0.25); color: #f5f3ee; }
-    .sizeBox { border: 1px solid var(--border); border-radius: 12px; background: rgba(255,255,255,0.32); padding: 9px; color: var(--muted); font-size: 10.5px; font-weight: 610; }
+    .fieldTitle, .toggleRow span { font-size: 12px; font-weight: 600; color: #555555; letter-spacing: -0.01em; }
+    .fieldHint { margin-top: 2px; color: #777777; font-size: 11px; font-weight: 400; }
+    .stepper { height: 30px; display: grid; grid-template-columns: 28px 44px 28px; border: 1px solid #e8e5df; border-radius: 10px; overflow: hidden; background: #ffffff; }
+    .stepper button { border: 0; background: transparent; color: #6f6f6f; }
+    .stepper button:hover { color: #111111; background: #f2f2f2; }
+    .stepper span { display: grid; place-items: center; border-left: 1px solid #e8e5df; border-right: 1px solid #e8e5df; font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
+    .toggle { width: 64px; height: 29px; border: 1px solid #e8e5df; border-radius: 10px; background: #ffffff; color: #6f6f6f; font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
+    .toggle.on { background: #111111; border-color: #111111; color: #ffffff; }
+    .sizeBox { border: 1px solid #e8e5df; border-radius: 12px; background: #ffffff; padding: 9px; color: #777777; font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
     .sizeBox b { color: var(--measure); font-weight: 600; }
     .viewport { position: absolute; z-index: 0; inset: 0; min-width: 0; overflow: hidden; background: radial-gradient(circle at 52% 50%, #ffffff 0 18%, #f7f5f1 46%, #eee9df 100%); box-shadow: inset 0 100px 180px rgba(255,255,255,0.58), inset 0 -120px 180px rgba(180,171,157,0.2); }
     .viewport::before { content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; background: linear-gradient(90deg, rgba(255,255,255,0.62) 0%, rgba(255,255,255,0.08) 42%, rgba(182,173,159,0.12) 100%); }
     .threeHost { position: absolute; inset: 0; z-index: 1; }
     .threeHost canvas { display: block; width: 100%; height: 100%; }
-    .floatingToolbar { position: absolute; z-index: 30; top: 34px; left: 50%; transform: translateX(-50%); display: flex; gap: 7px; padding: 8px; border: 1px solid rgba(18,20,24,0.08); border-radius: 18px; background: rgba(255,255,255,0.78); -webkit-backdrop-filter: blur(18px) saturate(125%); backdrop-filter: blur(18px) saturate(125%); box-shadow: 0 18px 45px rgba(33,35,38,0.1), inset 0 1px 0 rgba(255,255,255,0.86); }
-    .toolButton { width: 36px; height: 36px; border: 1px solid rgba(36,38,42,0.1); border-radius: 11px; background: rgba(255,255,255,0.74); color: #575c63; display: grid; place-items: center; }
-    .toolButton.active { background: #050506; border-color: #050506; color: white; }
+    .floatingToolbar { position: absolute; z-index: 30; top: 34px; left: 50%; transform: translateX(-50%); display: flex; gap: 7px; padding: 8px; border: 1px solid #e8e5df; border-radius: var(--frame-radius); background: rgba(255,255,255,0.78); -webkit-backdrop-filter: blur(18px) saturate(125%); backdrop-filter: blur(18px) saturate(125%); box-shadow: 0 18px 45px rgba(33,35,38,0.1), inset 0 1px 0 rgba(255,255,255,0.86); }
+    .toolButton { width: 36px; height: 36px; border: 1px solid #e8e5df; border-radius: 11px; background: #ffffff; color: #6f6f6f; display: grid; place-items: center; }
+    .toolButton.active { background: #111111; border-color: #111111; color: #ffffff; }
     .miniIcon { width: 16px; height: 16px; }
-    .libraryPopup { position: absolute; z-index: 29; top: 72px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; padding: 8px; border: 1px solid rgba(255,255,255,0.54); border-radius: 18px; background: rgba(239,238,232,0.8); -webkit-backdrop-filter: blur(18px) saturate(125%); backdrop-filter: blur(18px) saturate(125%); box-shadow: 0 18px 45px rgba(75,72,68,0.2); }
+    .libraryPopup { position: absolute; z-index: 29; top: 72px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; padding: 8px; border: 1px solid #e8e5df; border-radius: var(--frame-radius); background: rgba(255,255,255,0.86); -webkit-backdrop-filter: blur(18px) saturate(125%); backdrop-filter: blur(18px) saturate(125%); box-shadow: 0 18px 45px rgba(75,72,68,0.2); }
     .libraryGroup { display: flex; flex-direction: column; gap: 5px; }
-    .libraryGroupTitle { color: var(--muted); font-size: 9px; font-weight: 700; line-height: 1; text-transform: uppercase; letter-spacing: 0.08em; padding-left: 3px; }
+    .libraryGroupTitle { color: #777777; font-size: 11px; font-weight: 800; line-height: 1; text-transform: uppercase; letter-spacing: -0.01em; padding-left: 3px; }
     .libraryGroupItems { display: flex; gap: 5px; }
     .libraryGroupItems.wallItems { display: grid; grid-template-columns: repeat(3, 76px); }
-    .libraryItem { width: 76px; height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px solid rgba(36,38,42,0.12); border-radius: 12px; background: rgba(255,255,255,0.32); color: #6c7076; font-size: 9px; font-weight: 670; text-align: center; white-space: nowrap; }
-    .libraryItem:hover { color: #1d1e22; border-color: rgba(29,30,34,0.24); background: rgba(255,255,255,0.52); }
+    .libraryItem { width: 76px; height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px solid #e8e5df; border-radius: 12px; background: #ffffff; color: #6f6f6f; font-size: 10px; font-weight: 700; letter-spacing: -0.01em; text-align: center; white-space: nowrap; }
+    .libraryItem:hover { color: #111111; border-color: #e8e5df; background: #f2f2f2; }
     .libraryIcon { width: 18px; height: 18px; display: block; background: currentColor; -webkit-mask: var(--icon-url) center / contain no-repeat; mask: var(--icon-url) center / contain no-repeat; }
-    .viewportBadge { position: absolute; z-index: 10; right: 374px; top: 44px; border: 1px solid rgba(18,20,24,0.06); border-radius: 999px; background: rgba(255,255,255,0.68); color: #6c7076; font-size: 10.5px; font-weight: 760; padding: 10px 16px; pointer-events: none; backdrop-filter: blur(14px); }
-    .mouseHelp { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); max-width: 390px; padding: 11px 18px; border: 1px solid rgba(18,20,24,0.06); border-radius: 999px; background: rgba(255,255,255,0.68); color: #6c7076; font-size: 10.5px; font-weight: 660; pointer-events: none; backdrop-filter: blur(14px); }
-    .viewSwitch { position: absolute; left: 50%; bottom: 28px; transform: translateX(128px); display: flex; gap: 4px; padding: 4px; border: 1px solid rgba(18,20,24,0.06); border-radius: 999px; background: rgba(255,255,255,0.68); backdrop-filter: blur(14px); pointer-events: none; }
-    .viewSwitch button { height: 26px; padding: 0 12px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); font-size: 11px; }
-    .viewSwitch button.active { background: rgba(255,255,255,0.44); color: var(--text); }
+    .viewportBadge { position: absolute; z-index: 10; right: 374px; top: 44px; border: 1px solid #e8e5df; border-radius: var(--frame-radius); background: rgba(255,255,255,0.68); color: #111111; font-size: 12px; font-weight: 700; letter-spacing: -0.015em; padding: 10px 16px; pointer-events: none; backdrop-filter: blur(14px); }
     @media (max-width: 1180px) {
-      .appTopBar { grid-template-columns: 150px minmax(180px, 1fr) auto; gap: 14px; padding: 0 20px; }
+      .appTopBar { grid-template-columns: 150px 1fr auto; gap: 14px; padding: 0 20px; }
       .topFilterRow { display: none; }
       .sideRail { display: none; }
       .leftPanel { width: 300px; left: 16px; }
       .rightPanel { width: 300px; right: 16px; }
-      .leftPanel .panelTitle { font-size: 26px; }
+      .leftPanel .panelTitle { font-size: 30px; }
       .viewportBadge { right: 336px; }
     }
     @media (max-width: 1020px) {
       .leftPanel { width: 272px; left: 12px; }
       .rightPanel { width: 292px; right: 12px; }
       .viewportBadge { right: 318px; }
-      .mouseHelp { max-width: 320px; }
     }
     @media (max-width: 880px) {
       .appTopBar { display: none; }
-      .leftPanel, .rightPanel { left: 12px; right: 12px; width: auto; top: auto; bottom: auto; max-height: calc(50vh - 22px); border-radius: 22px; }
+      .leftPanel, .rightPanel { left: 12px; right: 12px; width: auto; top: auto; bottom: auto; max-height: calc(50vh - 22px); border-radius: var(--frame-radius); }
       .leftPanel { top: 12px; }
       .rightPanel { bottom: 12px; }
       .panelHeader { padding: 12px; }
       .panelScroll { padding: 10px; }
       .floatingToolbar { top: calc(50vh - 23px); }
       .libraryPopup { top: calc(50vh + 30px); max-width: calc(100vw - 24px); overflow-x: auto; }
-      .viewportBadge, .mouseHelp, .viewSwitch { display: none; }
+      .viewportBadge { display: none; }
     }
   `}</style><AppTopBar theme={config.theme} scale={config.scale} /><div className="mainLayout"><SideRail /><LeftPanel activeTab={activeTab} setActiveTab={setActiveTab} printList={printList} onCopy={copyBuildList} onDownload={downloadTxt} /><Viewport config={config} tiles={tiles} setTiles={setTiles} selectedIds={selectedIds} setSelectedIds={setSelectedIds} activeColor={activeColor} showRuler={showRuler} setShowRuler={setShowRuler} showGrid={showGrid} setShowGrid={setShowGrid} /><RightPanel config={config} setConfig={updateConfig} activeColor={activeColor} setActiveColor={setActiveColor} selectionCount={selectedIds.length} onReset={resetConfiguration} onShare={shareBuildList} onExport={downloadTxt} /></div></div>;
 }
