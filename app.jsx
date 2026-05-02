@@ -140,6 +140,7 @@ const TOOLBAR = [
   { key: "rotate", label: "Rotate", Icon: RotateCw },
   { key: "flip", label: "Flip", Icon: FlipHorizontal },
   { key: "paint", label: "Paint", Icon: PaintBucket },
+  { key: "units", label: "Units" },
   { key: "ruler", label: "Ruler", Icon: Ruler },
   { key: "grid", label: "Grid", Icon: Grid3X3 }
 ];
@@ -932,12 +933,8 @@ if (typeof window !== "undefined" && !window.__MODULAR_DIORAMA_THREE_VANILLA_TES
 
 function MiniIcon({ Icon }) { return <Icon className="miniIcon" aria-hidden="true" />; }
 
-function TopSelect({ label, value, onChange, children }) {
-  return <label className="topSelect"><span className="topSelectLabel">{label}</span><select value={value} onChange={(event) => onChange(event.target.value)}>{children}</select><ChevronDown className="topIcon" aria-hidden="true" /></label>;
-}
-
-function AppTopBar({ config, setConfig }) {
-  return <header className="appTopBar"><div className="brandLockup"><span className="brandMark" /><span>Modular</span></div><div className="topFilterRow"><TopSelect label="Theme" value={config.theme} onChange={(theme) => setConfig({ theme })}>{THEME_OPTIONS.map((theme) => <option key={theme}>{theme}</option>)}</TopSelect><TopSelect label="Scale" value={config.scale} onChange={(scale) => setConfig({ scale })}>{SCALE_OPTIONS.map((scale) => <option key={scale}>{scale}</option>)}</TopSelect><TopSelect label="Units" value={config.units} onChange={(units) => setConfig({ units })}>{UNIT_OPTIONS.map((unit) => <option key={unit.value} value={unit.value}>{unit.label}</option>)}</TopSelect></div><div className="topProfileRow"><button className="roundAction"><MessageCircle className="topIcon" aria-hidden="true" /></button><button className="roundAction"><Bell className="topIcon" aria-hidden="true" /></button><button className="userPill"><span className="avatar"><UserRound className="topIcon" aria-hidden="true" /></span><span><b>Builder</b><small>{config.scale}</small></span><ChevronDown className="topIcon" aria-hidden="true" /></button></div></header>;
+function AppTopBar({ config }) {
+  return <header className="appTopBar"><div className="brandLockup"><span className="brandMark" /><span>Modular</span></div><div /><div className="topProfileRow"><button className="roundAction"><MessageCircle className="topIcon" aria-hidden="true" /></button><button className="roundAction"><Bell className="topIcon" aria-hidden="true" /></button><button className="userPill"><span className="avatar"><UserRound className="topIcon" aria-hidden="true" /></span><span><b>Builder</b><small>{config.scale}</small></span><ChevronDown className="topIcon" aria-hidden="true" /></button></div></header>;
 }
 
 function SideRail() {
@@ -1052,7 +1049,7 @@ function RightPanel({ config, setConfig, materialSlots, activeMaterialSlot, setA
   return <aside className="rightPanel"><div className="panelHeader inspectorHeader"><div><div className="panelTitle">Inspector</div><div className="panelSub">{selectionCount} selected tile{selectionCount === 1 ? "" : "s"}</div></div><button className="iconButton" onClick={onReset} title="Reset Configuration"><RotateCcw className="buttonIcon" aria-hidden="true" /></button></div><div className="panelScroll settingsScroll"><MaterialPalette materialSlots={materialSlots} activeMaterialSlot={activeMaterialSlot} setActiveMaterialSlot={setActiveMaterialSlot} updateMaterialSlot={updateMaterialSlot} addMaterialSlot={addMaterialSlot} removeMaterialSlot={removeMaterialSlot} /><CollapsibleSettingsBlock title="Grid" collapsed={Boolean(collapsedBlocks.grid)} onToggle={() => toggleBlock("grid")}><Stepper label="Width" value={config.width} min={1} max={10} hint={moduleHint} onChange={(value) => setConfig({ width: value })} /><Stepper label="Depth" value={config.depth} min={1} max={10} hint={moduleHint} onChange={(value) => setConfig({ depth: value })} /><Stepper label="Height" value={config.height} min={1} max={8} hint={moduleHint} onChange={(value) => setConfig({ height: value })} /><div className="sizeBox">Size: <b>{formatConfigSize(config)}</b></div></CollapsibleSettingsBlock><CollapsibleSettingsBlock title="Walls" collapsed={Boolean(collapsedBlocks.walls)} onToggle={() => toggleBlock("walls")}><Toggle label="Back Wall" value={config.backWall} onChange={(value) => setConfig({ backWall: value })} /><Toggle label="Left Wall" value={config.leftWall} onChange={(value) => setConfig({ leftWall: value })} /><Toggle label="Right Wall" value={config.rightWall} onChange={(value) => setConfig({ rightWall: value })} /></CollapsibleSettingsBlock></div><div className="panelFooter twoButtons"><button className="panelButton" onClick={onShare}><Share2 className="buttonIcon" aria-hidden="true" />Share</button><button className="panelButton primary" onClick={onExport}><Download className="buttonIcon" aria-hidden="true" />Export</button></div></aside>;
 }
 
-function Toolbar({ activeTool, setActiveTool, selectedCount, showRuler, setShowRuler, showGrid, setShowGrid, onGroup, onRotate, onFlip, onPaint }) {
+function Toolbar({ activeTool, setActiveTool, selectedCount, units, setUnits, showRuler, setShowRuler, showGrid, setShowGrid, onGroup, onRotate, onFlip, onPaint }) {
   const [paintPulse, setPaintPulse] = useState(false);
 
   function pulsePaintButton() {
@@ -1073,14 +1070,15 @@ function Toolbar({ activeTool, setActiveTool, selectedCount, showRuler, setShowR
       setActiveTool("paint");
       return;
     }
+    if (toolKey === "units") { setUnits(units === "mm" ? "in" : "mm"); return; }
     if (toolKey === "ruler") { setShowRuler((value) => !value); return; }
     if (toolKey === "grid") { setShowGrid((value) => !value); return; }
     setActiveTool(toolKey);
   }
-  return <div className="floatingToolbar">{TOOLBAR.map((tool) => <button key={tool.key} title={tool.label} className={cx("toolButton", activeTool === tool.key ? "active" : "", tool.key === "paint" && paintPulse ? "pulse" : "", tool.key === "ruler" && showRuler ? "active" : "", tool.key === "grid" && showGrid ? "active" : "")} onClick={() => runTool(tool.key)}><MiniIcon Icon={tool.Icon} /></button>)}</div>;
+  return <div className="floatingToolbar">{TOOLBAR.map((tool) => <button key={tool.key} title={tool.key === "units" ? (units === "in" ? "Inches" : "Millimeters") : tool.label} className={cx("toolButton", tool.key === "units" ? "unitToolButton" : "", activeTool === tool.key ? "active" : "", tool.key === "paint" && paintPulse ? "pulse" : "", tool.key === "units" && units === "in" ? "active" : "", tool.key === "ruler" && showRuler ? "active" : "", tool.key === "grid" && showGrid ? "active" : "")} onClick={() => runTool(tool.key)}>{tool.key === "units" ? <span className="unitIcon">{units === "in" ? "in" : "mm"}</span> : <MiniIcon Icon={tool.Icon} />}</button>)}</div>;
 }
 
-function Viewport({ config, tiles, setTiles, selectedIds, setSelectedIds, activeColor, activeMaterialSlot, activeMaterialLabel, showRuler, setShowRuler, showGrid, setShowGrid }) {
+function Viewport({ config, setConfig, tiles, setTiles, selectedIds, setSelectedIds, activeColor, activeMaterialSlot, activeMaterialLabel, showRuler, setShowRuler, showGrid, setShowGrid }) {
   const [activeTool, setActiveTool] = useState("select");
   const groupCounter = useRef(1);
 
@@ -1127,7 +1125,7 @@ function Viewport({ config, tiles, setTiles, selectedIds, setSelectedIds, active
     setActiveTool("select");
   }
 
-  return <main className="viewport"><Toolbar activeTool={activeTool} setActiveTool={setActiveTool} selectedCount={selectedIds.length} showRuler={showRuler} setShowRuler={setShowRuler} showGrid={showGrid} setShowGrid={setShowGrid} onGroup={groupSelected} onRotate={rotateSelected} onFlip={flipSelected} onPaint={paintSelected} /><div className="viewportBadge">{formatConfigSize(config)}</div><ThreeViewport config={config} tiles={tiles} selectedIds={selectedIds} activeTool={activeTool} onSelectTile={onSelectTile} onPaintTile={paintTile} clearSelection={clearSelection} showRuler={showRuler} showGrid={showGrid} /></main>;
+  return <main className="viewport"><Toolbar activeTool={activeTool} setActiveTool={setActiveTool} selectedCount={selectedIds.length} units={config.units} setUnits={(units) => setConfig({ units })} showRuler={showRuler} setShowRuler={setShowRuler} showGrid={showGrid} setShowGrid={setShowGrid} onGroup={groupSelected} onRotate={rotateSelected} onFlip={flipSelected} onPaint={paintSelected} /><div className="viewportBadge">{formatConfigSize(config)}</div><ThreeViewport config={config} tiles={tiles} selectedIds={selectedIds} activeTool={activeTool} onSelectTile={onSelectTile} onPaintTile={paintTile} clearSelection={clearSelection} showRuler={showRuler} showGrid={showGrid} /></main>;
 }
 
 export default function App() {
@@ -1263,25 +1261,21 @@ export default function App() {
 
   return <div className="appShell"><style>{`
     @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
-    :root { --bg: #f7f6f2; --viewport: #fbfaf7; --panel: rgba(255,255,255,0.88); --panel2: #ffffff; --border: #e8e5df; --text: #111111; --muted: #777777; --active: #111111; --soft: #f2f2f2; --measure: #111111; --frame-radius: 18px; --control-height: 36px; --icon-button-size: 36px; --icon-glyph-size: 18px; --icon-stroke-width: 2.2; }
+    :root { --bg: #f7f6f2; --viewport: #fbfaf7; --panel: rgba(255,255,255,0.88); --panel2: #ffffff; --border: #e8e5df; --text: #111111; --muted: #777777; --active: #111111; --soft: #f2f2f2; --measure: #111111; --frame-radius: 18px; --control-height: 36px; --icon-button-size: 36px; --icon-glyph-size: 18px; --icon-stroke-width: 2.2; --app-header-height: 86px; }
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--bg); font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; line-height: 1.35; font-weight: 400; color: #111111; }
     button, select, input { font: inherit; }
     button { cursor: pointer; }
     .appShell { width: 100vw; height: 100vh; overflow: hidden; display: flex; flex-direction: column; background: radial-gradient(circle at 52% 52%, #ffffff 0 24%, #fbfaf7 50%, #f7f6f2 100%); color: var(--text); font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; line-height: 1.35; font-weight: 400; font-optical-sizing: auto; -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision; }
-    .appTopBar { height: 86px; flex: 0 0 86px; display: grid; grid-template-columns: 170px 1fr auto; align-items: center; gap: 24px; padding: 0 42px; position: relative; z-index: 40; }
+    .appTopBar { height: var(--app-header-height); flex: 0 0 var(--app-header-height); display: grid; grid-template-columns: 170px 1fr auto; align-items: center; gap: 24px; padding: 0 42px; position: relative; z-index: 40; background: transparent; pointer-events: none; }
+    .appTopBar button { pointer-events: auto; }
     .brandLockup { display: flex; align-items: center; gap: 11px; font-size: 18px; font-weight: 700; letter-spacing: -0.03em; }
     .brandMark { width: 30px; height: 30px; border-radius: 7px; background: #0d0e10; display: block; position: relative; box-shadow: 0 10px 22px rgba(0,0,0,0.12); }
     .brandMark::after { content: ""; position: absolute; inset: 8px; border-radius: 3px; background: #fff; }
-    .topSelect, .roundAction, .userPill { border: 1px solid var(--border); background: rgba(255,255,255,0.72); box-shadow: 0 14px 35px rgba(33,35,38,0.06), inset 0 1px 0 rgba(255,255,255,0.82); }
-    .topFilterRow, .topProfileRow { display: flex; align-items: center; gap: 10px; }
-    .topFilterRow { justify-content: center; }
+    .roundAction, .userPill { border: 1px solid var(--border); background: rgba(255,255,255,0.72); box-shadow: 0 14px 35px rgba(33,35,38,0.06), inset 0 1px 0 rgba(255,255,255,0.82); }
+    .topProfileRow { display: flex; align-items: center; gap: 10px; }
     .topProfileRow { justify-content: flex-end; }
-    .topSelect { height: var(--control-height); border-radius: var(--frame-radius); padding: 0 10px 0 12px; display: inline-flex; align-items: center; gap: 5px; color: #111111; font-size: 12px; font-weight: 600; letter-spacing: -0.01em; }
-    .topSelectLabel { color: #777777; font-size: 12px; font-weight: 600; }
-    .topSelect select { width: auto; min-width: 46px; height: 100%; border: 0; border-radius: 0; background: transparent; color: #111111; padding: 0 3px; font-size: 12px; font-weight: 700; letter-spacing: -0.01em; outline: none; appearance: none; cursor: pointer; }
-    .topSelect .topIcon { width: 14px; height: 14px; color: #6f6f6f; }
-    .topSelect:hover, .roundAction:hover, .userPill:hover, .railButton:hover, .toolButton:hover, .panelButton:hover, .iconButton:hover, .tab:hover { background: #f2f2f2; color: #111111; }
+    .roundAction:hover, .userPill:hover, .railButton:hover, .toolButton:hover, .panelButton:hover, .iconButton:hover, .tab:hover { background: #f2f2f2; color: #111111; }
     .roundAction { width: var(--icon-button-size); height: var(--icon-button-size); border-radius: var(--frame-radius); display: grid; place-items: center; color: #6f6f6f; background: #ffffff; }
     .roundAction.active { background: #111111; border-color: #111111; color: #ffffff; }
     .userPill { height: var(--control-height); border-radius: var(--frame-radius); padding: 0 12px 0 6px; display: inline-flex; align-items: center; gap: 9px; color: #111111; }
@@ -1290,7 +1284,7 @@ export default function App() {
     .userPill small { color: #777777; font-size: 10px; font-weight: 400; }
     .avatar { width: var(--icon-button-size); height: var(--icon-button-size); margin-left: -6px; border-radius: var(--frame-radius); display: grid; place-items: center; background: #111111; color: #ffffff; }
     .topIcon { width: var(--icon-glyph-size); height: var(--icon-glyph-size); stroke-width: var(--icon-stroke-width); }
-    .mainLayout { position: relative; flex: 1; min-height: 0; display: block; overflow: hidden; }
+    .mainLayout { position: relative; flex: 1; min-height: 0; display: block; overflow: visible; }
     .sideRail { position: absolute; z-index: 28; left: 414px; top: 50%; transform: translateY(-50%); display: grid; gap: 18px; }
     .railButton { width: var(--icon-button-size); height: var(--icon-button-size); border-radius: var(--frame-radius); border: 1px solid #e8e5df; background: #ffffff; color: #6f6f6f; display: grid; place-items: center; box-shadow: 0 14px 35px rgba(33,35,38,0.08); }
     .railButton.active { background: #111111; border-color: #111111; color: #ffffff; }
@@ -1412,12 +1406,13 @@ export default function App() {
     .toggle.on::after { transform: translateX(18px); background: #ffffff; }
     .sizeBox { color: #555555; font-size: 12px; font-weight: 600; letter-spacing: -0.01em; }
     .sizeBox b { color: #555555; font-weight: 600; }
-    .viewport { position: absolute; z-index: 0; inset: 0; min-width: 0; overflow: hidden; background: radial-gradient(circle at 52% 50%, #ffffff 0 18%, #f7f5f1 46%, #eee9df 100%); box-shadow: inset 0 100px 180px rgba(255,255,255,0.58), inset 0 -120px 180px rgba(180,171,157,0.2); }
+    .viewport { position: absolute; z-index: 0; top: calc(var(--app-header-height) * -1); right: 0; bottom: 0; left: 0; min-width: 0; overflow: hidden; background: radial-gradient(circle at 52% 50%, #ffffff 0 18%, #f7f5f1 46%, #eee9df 100%); box-shadow: inset 0 100px 180px rgba(255,255,255,0.58), inset 0 -120px 180px rgba(180,171,157,0.2); }
     .viewport::before { content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; background: linear-gradient(90deg, rgba(255,255,255,0.62) 0%, rgba(255,255,255,0.08) 42%, rgba(182,173,159,0.12) 100%); }
     .threeHost { position: absolute; inset: 0; z-index: 1; }
     .threeHost canvas { display: block; width: 100%; height: 100%; }
-    .floatingToolbar { position: absolute; z-index: 30; top: 22px; left: 50%; transform: translateX(-50%); display: flex; gap: 7px; padding: 8px; border: 1px solid #e8e5df; border-radius: var(--frame-radius); background: rgba(255,255,255,0.78); -webkit-backdrop-filter: blur(18px) saturate(125%); backdrop-filter: blur(18px) saturate(125%); box-shadow: 0 18px 45px rgba(33,35,38,0.1), inset 0 1px 0 rgba(255,255,255,0.86); }
+    .floatingToolbar { position: absolute; z-index: 30; top: calc(var(--app-header-height) + 22px); left: 50%; transform: translateX(-50%); display: flex; gap: 7px; padding: 8px; border: 1px solid #e8e5df; border-radius: var(--frame-radius); background: rgba(255,255,255,0.78); -webkit-backdrop-filter: blur(18px) saturate(125%); backdrop-filter: blur(18px) saturate(125%); box-shadow: 0 18px 45px rgba(33,35,38,0.1), inset 0 1px 0 rgba(255,255,255,0.86); }
     .toolButton { width: var(--icon-button-size); height: var(--icon-button-size); border: 1px solid #e8e5df; border-radius: 11px; background: #ffffff; color: #6f6f6f; display: grid; place-items: center; }
+    .unitToolButton { width: var(--icon-button-size); }
     .toolButton.active { background: #111111; border-color: #111111; color: #ffffff; }
     .toolButton.pulse { animation: toolPulse 180ms ease; }
     @keyframes toolPulse {
@@ -1425,10 +1420,10 @@ export default function App() {
       48% { background: #111111; border-color: #111111; color: #ffffff; }
     }
     .miniIcon { width: var(--icon-glyph-size); height: var(--icon-glyph-size); stroke-width: var(--icon-stroke-width); }
-    .viewportBadge { position: absolute; z-index: 10; right: 374px; top: 22px; height: var(--control-height); display: inline-flex; align-items: center; border: 1px solid #e8e5df; border-radius: var(--frame-radius); background: rgba(255,255,255,0.68); color: #111111; font-size: 12px; font-weight: 700; letter-spacing: -0.015em; padding: 0 14px; pointer-events: none; backdrop-filter: blur(14px); }
+    .unitIcon { font-size: 10px; line-height: 1; font-weight: 800; text-transform: uppercase; letter-spacing: 0; }
+    .viewportBadge { position: absolute; z-index: 10; right: 374px; top: calc(var(--app-header-height) + 22px); height: var(--control-height); display: inline-flex; align-items: center; border: 1px solid #e8e5df; border-radius: var(--frame-radius); background: rgba(255,255,255,0.68); color: #111111; font-size: 12px; font-weight: 700; letter-spacing: -0.015em; padding: 0 14px; pointer-events: none; backdrop-filter: blur(14px); }
     @media (max-width: 1180px) {
       .appTopBar { grid-template-columns: 150px 1fr auto; gap: 14px; padding: 0 20px; }
-      .topFilterRow { display: none; }
       .sideRail { display: none; }
       .leftPanel { width: 300px; left: 16px; }
       .rightPanel { width: 300px; right: 16px; }
@@ -1442,6 +1437,7 @@ export default function App() {
     }
     @media (max-width: 880px) {
       .appTopBar { display: none; }
+      .viewport { top: 0; }
       .leftPanel, .rightPanel { left: 12px; right: 12px; width: auto; top: auto; bottom: auto; max-height: calc(50vh - 22px); border-radius: var(--frame-radius); }
       .leftPanel { top: 12px; }
       .rightPanel { bottom: 12px; }
@@ -1450,5 +1446,5 @@ export default function App() {
       .floatingToolbar { top: calc(50vh - 23px); }
       .viewportBadge { display: none; }
     }
-  `}</style><AppTopBar config={config} setConfig={updateConfig} /><div className="mainLayout"><SideRail /><LeftPanel config={config} setConfig={updateConfig} printList={printList} onApplyLibraryItem={applyLibraryModel} onCopy={copyBuildList} onDownload={downloadTxt} /><Viewport config={config} tiles={tiles} setTiles={setTiles} selectedIds={selectedIds} setSelectedIds={setSelectedIds} activeColor={activeColor} activeMaterialSlot={activeMaterial.slot} activeMaterialLabel={activeMaterialLabel} showRuler={showRuler} setShowRuler={setShowRuler} showGrid={showGrid} setShowGrid={setShowGrid} /><RightPanel config={config} setConfig={updateConfig} materialSlots={materialSlots} activeMaterialSlot={activeMaterialSlot} setActiveMaterialSlot={setActiveMaterialSlot} updateMaterialSlot={updateMaterialSlot} addMaterialSlot={addMaterialSlot} removeMaterialSlot={removeMaterialSlot} selectionCount={selectedIds.length} onReset={resetConfiguration} onShare={shareBuildList} onExport={downloadTxt} /></div></div>;
+  `}</style><AppTopBar config={config} /><div className="mainLayout"><SideRail /><LeftPanel config={config} setConfig={updateConfig} printList={printList} onApplyLibraryItem={applyLibraryModel} onCopy={copyBuildList} onDownload={downloadTxt} /><Viewport config={config} setConfig={updateConfig} tiles={tiles} setTiles={setTiles} selectedIds={selectedIds} setSelectedIds={setSelectedIds} activeColor={activeColor} activeMaterialSlot={activeMaterial.slot} activeMaterialLabel={activeMaterialLabel} showRuler={showRuler} setShowRuler={setShowRuler} showGrid={showGrid} setShowGrid={setShowGrid} /><RightPanel config={config} setConfig={updateConfig} materialSlots={materialSlots} activeMaterialSlot={activeMaterialSlot} setActiveMaterialSlot={setActiveMaterialSlot} updateMaterialSlot={updateMaterialSlot} addMaterialSlot={addMaterialSlot} removeMaterialSlot={removeMaterialSlot} selectionCount={selectedIds.length} onReset={resetConfiguration} onShare={shareBuildList} onExport={downloadTxt} /></div></div>;
 }
