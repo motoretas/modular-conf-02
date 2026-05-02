@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { FlipHorizontal, Group, Library, MousePointer2, PaintBucket, RotateCw, Ruler } from "lucide-react";
+import { FlipHorizontal, Grid3X3, Group, Library, MousePointer2, PaintBucket, RotateCw, Ruler } from "lucide-react";
 
 const MODULE_MM = 50;
 const UNIT = 0.5;
@@ -70,7 +70,8 @@ const TOOLBAR = [
   { key: "rotate", label: "Rotate", Icon: RotateCw },
   { key: "flip", label: "Flip", Icon: FlipHorizontal },
   { key: "paint", label: "Paint", Icon: PaintBucket },
-  { key: "ruler", label: "Ruler", Icon: Ruler }
+  { key: "ruler", label: "Ruler", Icon: Ruler },
+  { key: "grid", label: "Grid", Icon: Grid3X3 }
 ];
 
 function cx() { return Array.from(arguments).filter(Boolean).join(" "); }
@@ -370,27 +371,28 @@ function makeVariantGroup(variant) {
   return group;
 }
 
-function ThreeViewport({ config, tiles, selectedIds, onSelectTile, clearSelection, showRuler }) {
+function ThreeViewport({ config, tiles, selectedIds, onSelectTile, clearSelection, showRuler, showGrid }) {
   const hostRef = useRef(null);
-  const dataRef = useRef({ config, tiles, selectedIds, onSelectTile, clearSelection, showRuler });
+  const dataRef = useRef({ config, tiles, selectedIds, onSelectTile, clearSelection, showRuler, showGrid });
   const viewportApiRef = useRef(null);
 
   useEffect(() => {
-    dataRef.current = { config, tiles, selectedIds, onSelectTile, clearSelection, showRuler };
-  }, [config, tiles, selectedIds, onSelectTile, clearSelection, showRuler]);
+    dataRef.current = { config, tiles, selectedIds, onSelectTile, clearSelection, showRuler, showGrid };
+  }, [config, tiles, selectedIds, onSelectTile, clearSelection, showRuler, showGrid]);
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return undefined;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color("#18191c");
-    scene.fog = new THREE.Fog("#18191c", 5, 12);
+    scene.background = null;
+    scene.fog = new THREE.Fog("#d6d5d1", 5, 12);
     let disposed = false;
 
     const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 100);
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setClearColor("#d6d5d1", 0);
     renderer.shadowMap.enabled = false;
     host.appendChild(renderer.domElement);
 
@@ -444,11 +446,12 @@ function ThreeViewport({ config, tiles, selectedIds, onSelectTile, clearSelectio
       }
     }
 
-    function buildGrid() {
+    function buildGrid(visible) {
       clearGroup(gridRoot);
+      if (!visible) return;
       const size = 12;
       const divisions = 24;
-      const grid = new THREE.GridHelper(size, divisions, "#3a3d46", "#30323a");
+      const grid = new THREE.GridHelper(size, divisions, "#aeb4b8", "#c5c9cb");
       grid.position.y = -0.005;
       gridRoot.add(grid);
     }
@@ -574,6 +577,7 @@ function ThreeViewport({ config, tiles, selectedIds, onSelectTile, clearSelectio
 
     function rebuild() {
       const current = dataRef.current;
+      buildGrid(current.showGrid);
       buildTiles(current.config, current.tiles, current.selectedIds);
       buildRulers(current.config, current.showRuler);
     }
@@ -655,7 +659,7 @@ function ThreeViewport({ config, tiles, selectedIds, onSelectTile, clearSelectio
 
     function contextMenu(event) { event.preventDefault(); }
 
-    buildGrid();
+    buildGrid(dataRef.current.showGrid);
     resize();
     updateCamera();
     buildRulers(dataRef.current.config, dataRef.current.showRuler);
@@ -697,7 +701,7 @@ function ThreeViewport({ config, tiles, selectedIds, onSelectTile, clearSelectio
 
   useEffect(() => {
     viewportApiRef.current?.rebuild();
-  }, [config, tiles, selectedIds, showRuler]);
+  }, [config, tiles, selectedIds, showRuler, showGrid]);
 
   return <div ref={hostRef} className="threeHost" />;
 }
@@ -761,7 +765,7 @@ function RightPanel({ config, setConfig, activeColor, setActiveColor, selectionC
   return <aside className="rightPanel"><div className="panelHeader inspectorHeader"><div><div className="panelTitle">Inspector</div><div className="panelSub">{selectionCount} selected tile{selectionCount === 1 ? "" : "s"}</div></div><button className="iconButton" onClick={onReset} title="Reset Configuration">↺</button></div><div className="panelScroll settingsScroll"><section className="settingsBlock"><div className="settingsTitle">Tool Color</div><div className="colorRow"><input type="color" value={activeColor} onChange={(event) => setActiveColor(event.target.value)} /><span>{activeColor}</span></div></section><section className="settingsBlock"><div className="settingsTitle">Global Settings</div><label className="label">Theme</label><select value={config.theme} onChange={(event) => setConfig({ theme: event.target.value })}><option>Sci-Fi</option><option>Urban</option><option>Industrial</option></select><label className="label withTop">Scale</label><select value={config.scale} onChange={(event) => setConfig({ scale: event.target.value })}><option>1:12</option><option>1:10</option><option>Custom</option></select></section><section className="settingsBlock stack"><div className="settingsTitle">Grid</div><Stepper label="Width" value={config.width} min={1} max={10} onChange={(value) => setConfig({ width: value })} /><Stepper label="Depth" value={config.depth} min={1} max={10} onChange={(value) => setConfig({ depth: value })} /><Stepper label="Height" value={config.height} min={1} max={8} onChange={(value) => setConfig({ height: value })} /><div className="sizeBox">Size: <b>{config.width * MODULE_MM} mm</b> × <b>{config.depth * MODULE_MM} mm</b> × <b>{config.height * MODULE_MM} mm</b></div></section><section className="settingsBlock stack"><div className="settingsTitle">Walls</div><Toggle label="Back Wall" value={config.backWall} onChange={(value) => setConfig({ backWall: value })} /><Toggle label="Left Wall" value={config.leftWall} onChange={(value) => setConfig({ leftWall: value })} /><Toggle label="Right Wall" value={config.rightWall} onChange={(value) => setConfig({ rightWall: value })} /></section></div><div className="panelFooter twoButtons"><button className="panelButton" onClick={onShare}>Share</button><button className="panelButton primary" onClick={onExport}>Export</button></div></aside>;
 }
 
-function Toolbar({ activeTool, setActiveTool, showLibrary, setShowLibrary, showRuler, setShowRuler, onGroup, onRotate, onFlip, onPaint }) {
+function Toolbar({ activeTool, setActiveTool, showLibrary, setShowLibrary, showRuler, setShowRuler, showGrid, setShowGrid, onGroup, onRotate, onFlip, onPaint }) {
   function runTool(toolKey) {
     if (toolKey === "library") { setShowLibrary((value) => !value); return; }
     if (toolKey === "group") { onGroup(); setActiveTool("select"); return; }
@@ -769,9 +773,10 @@ function Toolbar({ activeTool, setActiveTool, showLibrary, setShowLibrary, showR
     if (toolKey === "flip") { setActiveTool("flip"); onFlip(); return; }
     if (toolKey === "paint") { setActiveTool("paint"); onPaint(); return; }
     if (toolKey === "ruler") { setShowRuler((value) => !value); return; }
+    if (toolKey === "grid") { setShowGrid((value) => !value); return; }
     setActiveTool(toolKey);
   }
-  return <div className="floatingToolbar">{TOOLBAR.map((tool) => <button key={tool.key} title={tool.label} className={cx("toolButton", activeTool === tool.key ? "active" : "", tool.key === "library" && showLibrary ? "active" : "", tool.key === "ruler" && showRuler ? "active" : "")} onClick={() => runTool(tool.key)}><MiniIcon Icon={tool.Icon} /></button>)}</div>;
+  return <div className="floatingToolbar">{TOOLBAR.map((tool) => <button key={tool.key} title={tool.label} className={cx("toolButton", activeTool === tool.key ? "active" : "", tool.key === "library" && showLibrary ? "active" : "", tool.key === "ruler" && showRuler ? "active" : "", tool.key === "grid" && showGrid ? "active" : "")} onClick={() => runTool(tool.key)}><MiniIcon Icon={tool.Icon} /></button>)}</div>;
 }
 
 function LibraryPopup({ show, onApply }) {
@@ -783,7 +788,7 @@ function LibraryPopup({ show, onApply }) {
   return <div className="libraryPopup">{groups.map((group) => <div className="libraryGroup" key={group.key}><div className="libraryGroupTitle">{group.label}</div><div className={cx("libraryGroupItems", group.key === "wall" ? "wallItems" : "")}>{group.items.map((item) => <button className="libraryItem" key={item.key} onClick={() => onApply(item.key)} title={item.label}><span className="libraryIcon" style={{ "--icon-url": `url("${item.iconSrc}")` }} /><span>{item.label}</span></button>)}</div></div>)}</div>;
 }
 
-function Viewport({ config, tiles, setTiles, selectedIds, setSelectedIds, activeColor, showRuler, setShowRuler }) {
+function Viewport({ config, tiles, setTiles, selectedIds, setSelectedIds, activeColor, showRuler, setShowRuler, showGrid, setShowGrid }) {
   const [activeTool, setActiveTool] = useState("select");
   const [showLibrary, setShowLibrary] = useState(false);
   const groupCounter = useRef(1);
@@ -850,7 +855,7 @@ function Viewport({ config, tiles, setTiles, selectedIds, setSelectedIds, active
     setActiveTool("select");
   }
 
-  return <main className="viewport"><Toolbar activeTool={activeTool} setActiveTool={setActiveTool} showLibrary={showLibrary} setShowLibrary={setShowLibrary} showRuler={showRuler} setShowRuler={setShowRuler} onGroup={groupSelected} onRotate={rotateSelected} onFlip={flipSelected} onPaint={paintSelected} /><LibraryPopup show={showLibrary} onApply={applyLibraryModel} /><div className="viewportBadge">{config.width * MODULE_MM} × {config.depth * MODULE_MM} × {config.height * MODULE_MM} mm</div><ThreeViewport config={config} tiles={tiles} selectedIds={selectedIds} onSelectTile={onSelectTile} clearSelection={clearSelection} showRuler={showRuler} /><div className="mouseHelp">Left drag: orbit · Wheel: zoom · Right drag: pan · Shift/Ctrl click: multi-select</div><div className="viewSwitch"><button className="active">Perspective</button><button>Orthographic</button></div></main>;
+  return <main className="viewport"><Toolbar activeTool={activeTool} setActiveTool={setActiveTool} showLibrary={showLibrary} setShowLibrary={setShowLibrary} showRuler={showRuler} setShowRuler={setShowRuler} showGrid={showGrid} setShowGrid={setShowGrid} onGroup={groupSelected} onRotate={rotateSelected} onFlip={flipSelected} onPaint={paintSelected} /><LibraryPopup show={showLibrary} onApply={applyLibraryModel} /><div className="viewportBadge">{config.width * MODULE_MM} × {config.depth * MODULE_MM} × {config.height * MODULE_MM} mm</div><ThreeViewport config={config} tiles={tiles} selectedIds={selectedIds} onSelectTile={onSelectTile} clearSelection={clearSelection} showRuler={showRuler} showGrid={showGrid} /><div className="mouseHelp">Left drag: orbit · Wheel: zoom · Right drag: pan · Shift/Ctrl click: multi-select</div><div className="viewSwitch"><button className="active">Perspective</button><button>Orthographic</button></div></main>;
 }
 
 export default function App() {
@@ -859,6 +864,7 @@ export default function App() {
   const [activeColor, setActiveColor] = useState("#3b82f6");
   const [selectedIds, setSelectedIds] = useState([]);
   const [showRuler, setShowRuler] = useState(true);
+  const [showGrid, setShowGrid] = useState(true);
   const [tiles, setTiles] = useState(() => makeTiles(DEFAULT_CONFIG));
 
   function updateConfig(patch) {
@@ -912,88 +918,90 @@ export default function App() {
     setTiles(makeTiles(DEFAULT_CONFIG));
     setSelectedIds([]);
     setShowRuler(true);
+    setShowGrid(true);
   }
 
   return <div className="appShell"><style>{`
-    :root { --bg: #121316; --viewport: #18191c; --panel: #151619; --panel2: #1c1d21; --border: #2a2b30; --text: #f2f2f2; --muted: #9a9a9a; --blue: #2563eb; --blue2: #3b82f6; --measure: #60a5fa; }
+    :root { --bg: #d7d8d4; --viewport: #d9dad6; --panel: rgba(239, 238, 232, 0.74); --panel2: rgba(255,255,255,0.38); --border: rgba(36,38,42,0.14); --text: #25262a; --muted: #71757b; --blue: #24262b; --blue2: #111216; --measure: #566879; }
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--bg); }
     button, select, input { font: inherit; }
     button { cursor: pointer; }
-    .appShell { width: 100vw; height: 100vh; overflow: hidden; display: flex; flex-direction: column; background: var(--bg); color: var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .appShell { width: 100vw; height: 100vh; overflow: hidden; display: flex; flex-direction: column; background: linear-gradient(135deg, #cfd3d6 0%, #d9dad6 42%, #c9c5bd 100%); color: var(--text); font-family: Inter, "SF Pro Display", "Helvetica Neue", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-optical-sizing: auto; -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision; }
     .mainLayout { position: relative; flex: 1; min-height: 0; display: block; overflow: hidden; }
-    .panelButton:hover, .iconButton:hover { border-color: #3a3b42; color: white; }
-    .leftPanel, .rightPanel { position: absolute; z-index: 20; top: 16px; bottom: 16px; min-height: 0; display: flex; flex-direction: column; border: 1px solid rgba(255,255,255,0.09); border-radius: 24px; background: rgba(21, 22, 25, 0.84); backdrop-filter: blur(18px) saturate(130%); box-shadow: 0 24px 70px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.04); overflow: hidden; }
+    .panelButton:hover, .iconButton:hover { border-color: rgba(28,29,32,0.24); color: #15161a; background: rgba(255,255,255,0.56); }
+    .leftPanel, .rightPanel { position: absolute; z-index: 20; top: 16px; bottom: 16px; min-height: 0; display: flex; flex-direction: column; border: 1px solid rgba(255,255,255,0.52); border-radius: 30px; background: var(--panel); -webkit-backdrop-filter: blur(22px) saturate(125%); backdrop-filter: blur(22px) saturate(125%); box-shadow: 0 28px 70px rgba(75,72,68,0.24), 0 7px 18px rgba(54,55,58,0.12), inset 0 1px 0 rgba(255,255,255,0.68); overflow: hidden; }
     .leftPanel { left: 16px; width: 280px; }
     .rightPanel { right: 16px; width: 320px; }
-    .panelHeader { padding: 14px; border-bottom: 1px solid rgba(255,255,255,0.07); background: rgba(18,19,22,0.35); }
-    .panelTitle { font-size: 13px; font-weight: 650; }
-    .panelSub { margin-top: 3px; color: var(--muted); font-size: 11px; }
+    .panelHeader { padding: 16px; border-bottom: 1px solid rgba(45,47,51,0.08); background: rgba(255,255,255,0.24); }
+    .panelTitle { font-size: 14px; font-weight: 760; letter-spacing: -0.02em; }
+    .panelSub { margin-top: 3px; color: var(--muted); font-size: 10.5px; font-weight: 560; letter-spacing: -0.005em; }
     .tabs { display: flex; gap: 6px; margin-top: 12px; }
-    .tab { height: 27px; border: 1px solid var(--border); border-radius: 8px; padding: 0 10px; background: var(--panel2); color: var(--muted); font-size: 12px; }
-    .tab.active { background: #1d4ed8; border-color: var(--blue); color: white; }
+    .tab { height: 28px; border: 1px solid var(--border); border-radius: 10px; padding: 0 11px; background: rgba(255,255,255,0.28); color: var(--muted); font-size: 11.5px; font-weight: 650; letter-spacing: -0.01em; }
+    .tab.active { background: #1c1d21; border-color: rgba(0,0,0,0.24); color: #f3f1ec; }
     .panelScroll { flex: 1; min-height: 0; overflow: auto; padding: 12px; }
     .panelScroll::-webkit-scrollbar { width: 8px; }
-    .panelScroll::-webkit-scrollbar-track { background: var(--panel); }
-    .panelScroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
-    .printGroup { border: 1px solid var(--border); border-radius: 10px; background: var(--panel2); overflow: hidden; margin-bottom: 10px; }
-    .groupHeader { height: 32px; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; border-bottom: 1px solid var(--border); font-size: 12px; }
+    .panelScroll::-webkit-scrollbar-track { background: transparent; }
+    .panelScroll::-webkit-scrollbar-thumb { background: rgba(38,40,44,0.18); border-radius: 99px; }
+    .printGroup { border: 1px solid var(--border); border-radius: 14px; background: rgba(255,255,255,0.28); overflow: hidden; margin-bottom: 10px; }
+    .groupHeader { height: 34px; display: flex; align-items: center; justify-content: space-between; padding: 0 11px; border-bottom: 1px solid rgba(36,38,42,0.1); font-size: 11.5px; font-weight: 710; letter-spacing: -0.01em; }
     .groupHeader span:last-child { color: var(--muted); font-size: 10px; }
     .groupBody { padding: 8px; }
-    .partCard, .assetCard { border: 1px solid var(--border); border-radius: 8px; background: var(--panel); padding: 8px; margin-bottom: 8px; }
-    .partName, .assetName { font-size: 12px; }
+    .partCard, .assetCard { border: 1px solid rgba(36,38,42,0.1); border-radius: 12px; background: rgba(255,255,255,0.32); padding: 9px; margin-bottom: 8px; }
+    .partName, .assetName { font-size: 11.5px; font-weight: 620; letter-spacing: -0.01em; }
     .partName b { color: var(--measure); }
     .fileName, .assetId, .emptyLine { margin-top: 5px; color: var(--muted); font-size: 10px; word-break: break-all; }
     .tagRow { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
-    .tag { border: 1px solid var(--border); border-radius: 5px; padding: 2px 5px; color: var(--muted); font-size: 10px; line-height: 1; }
-    .tag.active { border-color: var(--blue); background: #172554; color: #93c5fd; }
-    .panelFooter { border-top: 1px solid rgba(255,255,255,0.07); padding: 12px; background: rgba(18,19,22,0.35); }
+    .tag { border: 1px solid rgba(36,38,42,0.12); border-radius: 7px; padding: 3px 6px; color: var(--muted); font-size: 9.5px; font-weight: 650; line-height: 1; }
+    .tag.active { border-color: rgba(30,31,35,0.2); background: rgba(30,31,35,0.1); color: #303238; }
+    .panelFooter { border-top: 1px solid rgba(45,47,51,0.08); padding: 12px; background: rgba(255,255,255,0.24); }
     .twoButtons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .panelButton, .iconButton { border: 1px solid var(--border); border-radius: 8px; background: var(--panel2); color: #d7d7d7; font-size: 11px; min-height: 32px; }
-    .panelButton.primary { background: #1d4ed8; border-color: var(--blue); color: white; }
+    .panelButton, .iconButton { border: 1px solid var(--border); border-radius: 11px; background: rgba(255,255,255,0.32); color: #36383d; font-size: 11px; font-weight: 690; min-height: 33px; letter-spacing: -0.01em; }
+    .panelButton.primary { background: #1d1e22; border-color: rgba(0,0,0,0.25); color: #f5f3ee; }
     .inspectorHeader { display: flex; align-items: center; justify-content: space-between; }
     .iconButton { width: 31px; height: 31px; font-size: 15px; }
     .settingsScroll { display: flex; flex-direction: column; gap: 12px; }
-    .settingsBlock { border: 1px solid var(--border); border-radius: 10px; background: var(--panel2); padding: 10px; }
+    .settingsBlock { border: 1px solid var(--border); border-radius: 15px; background: rgba(255,255,255,0.28); padding: 11px; }
     .settingsBlock.stack { display: flex; flex-direction: column; gap: 10px; }
-    .settingsTitle { color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; margin-bottom: 10px; }
-    .label { display: block; color: var(--muted); font-size: 11px; margin-bottom: 5px; }
+    .settingsTitle { color: #3b3d42; text-transform: none; letter-spacing: -0.015em; font-size: 12px; font-weight: 760; margin-bottom: 10px; }
+    .label { display: block; color: var(--muted); font-size: 10.5px; font-weight: 620; margin-bottom: 5px; }
     .label.withTop { margin-top: 10px; }
-    select { width: 100%; height: 32px; border: 1px solid var(--border); border-radius: 8px; background: #121316; color: var(--text); padding: 0 8px; font-size: 12px; outline: none; }
+    select { width: 100%; height: 33px; border: 1px solid var(--border); border-radius: 11px; background: rgba(255,255,255,0.36); color: var(--text); padding: 0 9px; font-size: 11.5px; font-weight: 650; outline: none; }
     .colorRow { display: flex; align-items: center; gap: 9px; }
     .colorRow input { width: 46px; height: 32px; border: 1px solid var(--border); border-radius: 8px; background: transparent; }
     .colorRow span { color: var(--muted); font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
     .stepperRow, .toggleRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-    .fieldTitle, .toggleRow span { font-size: 12px; color: var(--text); }
+    .fieldTitle, .toggleRow span { font-size: 11.5px; font-weight: 690; color: var(--text); letter-spacing: -0.01em; }
     .fieldHint { margin-top: 2px; color: var(--muted); font-size: 10px; }
-    .stepper { height: 29px; display: grid; grid-template-columns: 28px 44px 28px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #121316; }
+    .stepper { height: 30px; display: grid; grid-template-columns: 28px 44px 28px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: rgba(255,255,255,0.34); }
     .stepper button { border: 0; background: transparent; color: var(--muted); }
-    .stepper button:hover { color: white; background: var(--panel2); }
+    .stepper button:hover { color: #17181b; background: rgba(255,255,255,0.48); }
     .stepper span { display: grid; place-items: center; border-left: 1px solid var(--border); border-right: 1px solid var(--border); font-size: 12px; }
-    .toggle { width: 64px; height: 28px; border: 1px solid var(--border); border-radius: 8px; background: #121316; color: var(--muted); font-size: 12px; }
-    .toggle.on { background: #1d4ed8; border-color: var(--blue); color: white; }
-    .sizeBox { border: 1px solid var(--border); border-radius: 8px; background: #121316; padding: 8px; color: var(--muted); font-size: 11px; }
+    .toggle { width: 64px; height: 29px; border: 1px solid var(--border); border-radius: 10px; background: rgba(255,255,255,0.34); color: var(--muted); font-size: 11.5px; font-weight: 690; }
+    .toggle.on { background: #1d1e22; border-color: rgba(0,0,0,0.25); color: #f5f3ee; }
+    .sizeBox { border: 1px solid var(--border); border-radius: 12px; background: rgba(255,255,255,0.32); padding: 9px; color: var(--muted); font-size: 10.5px; font-weight: 610; }
     .sizeBox b { color: var(--measure); font-weight: 600; }
-    .viewport { position: absolute; z-index: 0; inset: 0; min-width: 0; overflow: hidden; background: radial-gradient(circle at 50% 20%, #202229 0, #18191c 45%, #121316 100%); }
-    .threeHost { position: absolute; inset: 0; }
+    .viewport { position: absolute; z-index: 0; inset: 0; min-width: 0; overflow: hidden; background: linear-gradient(140deg, #cbd0d4 0%, #deded9 45%, #c9c5bd 100%); box-shadow: inset 0 90px 160px rgba(255,255,255,0.35), inset 0 -120px 180px rgba(103,98,91,0.18); }
+    .viewport::before { content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; background: linear-gradient(90deg, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0.06) 36%, rgba(96,94,90,0.1) 100%); }
+    .threeHost { position: absolute; inset: 0; z-index: 1; }
     .threeHost canvas { display: block; width: 100%; height: 100%; }
-    .floatingToolbar { position: absolute; z-index: 30; top: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 5px; padding: 6px; border: 1px solid var(--border); border-radius: 13px; background: rgba(18, 19, 22, 0.92); backdrop-filter: blur(12px); box-shadow: 0 18px 40px rgba(0,0,0,0.35); }
-    .toolButton { width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 9px; background: var(--panel2); color: var(--muted); display: grid; place-items: center; }
-    .toolButton.active { background: #1d4ed8; border-color: var(--blue); color: white; }
+    .floatingToolbar { position: absolute; z-index: 30; top: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 5px; padding: 6px; border: 1px solid rgba(255,255,255,0.54); border-radius: 16px; background: rgba(239,238,232,0.72); -webkit-backdrop-filter: blur(18px) saturate(125%); backdrop-filter: blur(18px) saturate(125%); box-shadow: 0 18px 45px rgba(75,72,68,0.18), inset 0 1px 0 rgba(255,255,255,0.64); }
+    .toolButton { width: 32px; height: 32px; border: 1px solid rgba(36,38,42,0.12); border-radius: 11px; background: rgba(255,255,255,0.3); color: #686c72; display: grid; place-items: center; }
+    .toolButton.active { background: #1d1e22; border-color: rgba(0,0,0,0.25); color: #f5f3ee; }
     .miniIcon { width: 16px; height: 16px; }
-    .libraryPopup { position: absolute; z-index: 29; top: 72px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; padding: 7px; border: 1px solid var(--border); border-radius: 12px; background: rgba(18,19,22,0.95); box-shadow: 0 18px 40px rgba(0,0,0,0.34); }
+    .libraryPopup { position: absolute; z-index: 29; top: 72px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; padding: 8px; border: 1px solid rgba(255,255,255,0.54); border-radius: 18px; background: rgba(239,238,232,0.8); -webkit-backdrop-filter: blur(18px) saturate(125%); backdrop-filter: blur(18px) saturate(125%); box-shadow: 0 18px 45px rgba(75,72,68,0.2); }
     .libraryGroup { display: flex; flex-direction: column; gap: 5px; }
     .libraryGroupTitle { color: var(--muted); font-size: 9px; font-weight: 700; line-height: 1; text-transform: uppercase; letter-spacing: 0.08em; padding-left: 3px; }
     .libraryGroupItems { display: flex; gap: 5px; }
     .libraryGroupItems.wallItems { display: grid; grid-template-columns: repeat(3, 76px); }
-    .libraryItem { width: 76px; height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel2); color: var(--muted); font-size: 9px; text-align: center; white-space: nowrap; }
-    .libraryItem:hover { color: white; border-color: var(--blue); }
+    .libraryItem { width: 76px; height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px solid rgba(36,38,42,0.12); border-radius: 12px; background: rgba(255,255,255,0.32); color: #6c7076; font-size: 9px; font-weight: 670; text-align: center; white-space: nowrap; }
+    .libraryItem:hover { color: #1d1e22; border-color: rgba(29,30,34,0.24); background: rgba(255,255,255,0.52); }
     .libraryIcon { width: 18px; height: 18px; display: block; background: currentColor; -webkit-mask: var(--icon-url) center / contain no-repeat; mask: var(--icon-url) center / contain no-repeat; }
-    .viewportBadge { position: absolute; z-index: 10; right: 352px; top: 18px; border: 1px solid var(--border); border-radius: 9px; background: rgba(18,19,22,0.82); color: var(--muted); font-size: 11px; padding: 7px 10px; pointer-events: none; }
-    .mouseHelp { position: absolute; left: 312px; bottom: 18px; max-width: 390px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 12px; background: rgba(18,19,22,0.86); color: var(--muted); font-size: 11px; pointer-events: none; }
-    .viewSwitch { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; gap: 4px; padding: 4px; border: 1px solid var(--border); border-radius: 10px; background: rgba(18,19,22,0.86); pointer-events: none; }
+    .viewportBadge { position: absolute; z-index: 10; right: 352px; top: 18px; border: 1px solid rgba(255,255,255,0.48); border-radius: 12px; background: rgba(239,238,232,0.66); color: #6c7076; font-size: 10.5px; font-weight: 660; padding: 8px 11px; pointer-events: none; backdrop-filter: blur(14px); }
+    .mouseHelp { position: absolute; left: 312px; bottom: 18px; max-width: 390px; padding: 9px 11px; border: 1px solid rgba(255,255,255,0.48); border-radius: 14px; background: rgba(239,238,232,0.68); color: #6c7076; font-size: 10.5px; font-weight: 620; pointer-events: none; backdrop-filter: blur(14px); }
+    .viewSwitch { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; gap: 4px; padding: 4px; border: 1px solid rgba(255,255,255,0.48); border-radius: 13px; background: rgba(239,238,232,0.7); backdrop-filter: blur(14px); pointer-events: none; }
     .viewSwitch button { height: 26px; padding: 0 12px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); font-size: 11px; }
-    .viewSwitch button.active { background: var(--panel2); color: var(--text); }
+    .viewSwitch button.active { background: rgba(255,255,255,0.44); color: var(--text); }
     @media (max-width: 1020px) {
       .leftPanel { width: 252px; left: 12px; }
       .rightPanel { width: 292px; right: 12px; }
@@ -1010,5 +1018,5 @@ export default function App() {
       .libraryPopup { top: calc(50vh + 30px); max-width: calc(100vw - 24px); overflow-x: auto; }
       .viewportBadge, .mouseHelp, .viewSwitch { display: none; }
     }
-  `}</style><div className="mainLayout"><LeftPanel activeTab={activeTab} setActiveTab={setActiveTab} printList={printList} onCopy={copyBuildList} onDownload={downloadTxt} /><Viewport config={config} tiles={tiles} setTiles={setTiles} selectedIds={selectedIds} setSelectedIds={setSelectedIds} activeColor={activeColor} showRuler={showRuler} setShowRuler={setShowRuler} /><RightPanel config={config} setConfig={updateConfig} activeColor={activeColor} setActiveColor={setActiveColor} selectionCount={selectedIds.length} onReset={resetConfiguration} onShare={shareBuildList} onExport={downloadTxt} /></div></div>;
+  `}</style><div className="mainLayout"><LeftPanel activeTab={activeTab} setActiveTab={setActiveTab} printList={printList} onCopy={copyBuildList} onDownload={downloadTxt} /><Viewport config={config} tiles={tiles} setTiles={setTiles} selectedIds={selectedIds} setSelectedIds={setSelectedIds} activeColor={activeColor} showRuler={showRuler} setShowRuler={setShowRuler} showGrid={showGrid} setShowGrid={setShowGrid} /><RightPanel config={config} setConfig={updateConfig} activeColor={activeColor} setActiveColor={setActiveColor} selectionCount={selectedIds.length} onReset={resetConfiguration} onShare={shareBuildList} onExport={downloadTxt} /></div></div>;
 }
