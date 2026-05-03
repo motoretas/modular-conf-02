@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { BarChart3, Bell, ChevronDown, ClipboardList, Download, FlipHorizontal, Grid3X3, Group, Home, Map, MessageCircle, Minus, MousePointer2, PaintBucket, Plus, RotateCcw, RotateCw, Ruler, Search, Share2, UserRound, Users } from "lucide-react";
+import { BarChart3, Bell, ChevronDown, ClipboardList, Download, FlipHorizontal, Grid3X3, Group, Home, Info, Map, MessageCircle, Minus, MousePointer2, PaintBucket, Plus, RotateCcw, RotateCw, Ruler, Search, Share2, UserRound, Users } from "lucide-react";
 
 const MODULE_MM = 50;
 const UNIT = 0.5;
@@ -937,14 +937,14 @@ function AppTopBar({ config }) {
   return <header className="appTopBar"><div className="brandLockup"><span className="brandMark" /><span>Modular</span></div><div /><div className="topProfileRow"><button className="roundAction"><MessageCircle className="topIcon" aria-hidden="true" /></button><button className="roundAction"><Bell className="topIcon" aria-hidden="true" /></button><button className="userPill"><span className="avatar"><UserRound className="topIcon" aria-hidden="true" /></span><span><b>Builder</b><small>{config.scale}</small></span><ChevronDown className="topIcon" aria-hidden="true" /></button></div></header>;
 }
 
-function SideRail() {
+function SideRail({ builderOpen, onToggleBuilder }) {
   const items = [
     { label: "Home", Icon: Home },
-    { label: "Builder", Icon: Map, active: true },
+    { label: "Builder", Icon: Map, active: builderOpen, onClick: onToggleBuilder },
     { label: "Stats", Icon: BarChart3 },
     { label: "Team", Icon: Users }
   ];
-  return <nav className="sideRail" aria-label="Workspace navigation">{items.map(({ label, Icon, active }) => <button key={label} className={cx("railButton", active ? "active" : "")} title={label}><Icon className="railIcon" aria-hidden="true" /></button>)}</nav>;
+  return <nav className="sideRail" aria-label="Workspace navigation">{items.map(({ label, Icon, active, onClick }) => <button key={label} className={cx("railButton", active ? "active" : "")} title={label} onClick={onClick}><Icon className="railIcon" aria-hidden="true" /></button>)}</nav>;
 }
 
 function Tag({ children, active }) { return <span className={active ? "tag active" : "tag"}>{children}</span>; }
@@ -1000,13 +1000,13 @@ function AssetsList() {
   return <div className="assetList">{CATALOG.map((asset) => <div className="assetCard" key={asset.id}><div className="assetName">{asset.name}</div><div className="assetId">{asset.id}</div><div className="tagRow"><Tag>{asset.category}</Tag><Tag>{asset.variant}</Tag></div></div>)}</div>;
 }
 
-function LeftPanel({ config, setConfig, printList, onApplyLibraryItem, onCopy, onDownload }) {
+function LeftPanel({ config, setConfig, printList, onApplyLibraryItem, onCopy, onDownload, collapsed }) {
   const [collapsedBlocks, setCollapsedBlocks] = useState({});
   function toggleBlock(blockKey) {
     setCollapsedBlocks((previous) => ({ ...previous, [blockKey]: !previous[blockKey] }));
   }
 
-  return <aside className="leftPanel"><div className="panelHeader"><div className="panelTitle">Diorama Configurator</div><div className="panelSub">Printable modular 3D scene builder</div></div><div className="panelScroll settingsScroll"><CollapsibleSettingsBlock title="Library" collapsed={Boolean(collapsedBlocks.library)} onToggle={() => toggleBlock("library")}><LibraryBrowser config={config} setConfig={setConfig} onApply={onApplyLibraryItem} /></CollapsibleSettingsBlock><CollapsibleSettingsBlock title="Build" collapsed={Boolean(collapsedBlocks.build)} onToggle={() => toggleBlock("build")}><BuildList printList={printList} /></CollapsibleSettingsBlock><CollapsibleSettingsBlock title="Assets" collapsed={Boolean(collapsedBlocks.assets)} onToggle={() => toggleBlock("assets")}><AssetsList /></CollapsibleSettingsBlock></div><div className="panelFooter twoButtons"><button className="panelButton" onClick={onCopy}><ClipboardList className="buttonIcon" aria-hidden="true" />Copy Build List</button><button className="panelButton" onClick={onDownload}><Download className="buttonIcon" aria-hidden="true" />Download TXT</button></div></aside>;
+  return <aside className={cx("leftPanel", collapsed ? "collapsed" : "")} aria-hidden={collapsed}><div className="panelHeader"><div className="panelTitle">Diorama Configurator</div><div className="panelSub">Printable modular 3D scene builder</div></div><div className="panelScroll settingsScroll"><CollapsibleSettingsBlock title="Library" collapsed={Boolean(collapsedBlocks.library)} onToggle={() => toggleBlock("library")}><LibraryBrowser config={config} setConfig={setConfig} onApply={onApplyLibraryItem} /></CollapsibleSettingsBlock><CollapsibleSettingsBlock title="Build" collapsed={Boolean(collapsedBlocks.build)} onToggle={() => toggleBlock("build")}><BuildList printList={printList} /></CollapsibleSettingsBlock><CollapsibleSettingsBlock title="Assets" collapsed={Boolean(collapsedBlocks.assets)} onToggle={() => toggleBlock("assets")}><AssetsList /></CollapsibleSettingsBlock></div><div className="panelFooter twoButtons"><button className="panelButton" onClick={onCopy}><ClipboardList className="buttonIcon" aria-hidden="true" />Copy Build List</button><button className="panelButton" onClick={onDownload}><Download className="buttonIcon" aria-hidden="true" />Download TXT</button></div></aside>;
 }
 
 function Stepper({ label, value, min, max, onChange, hint = "50 mm module" }) {
@@ -1040,13 +1040,13 @@ function CollapsibleSettingsBlock({ title, collapsed, onToggle, children }) {
   return <section className={cx("settingsBlock", "collapsibleBlock", collapsed ? "collapsed" : "")}><div className="settingsHeader"><div className="settingsTitle">{title}</div><button className={cx("materialAction", collapsed ? "collapsed" : "")} onClick={onToggle} title={collapsed ? `Expand ${title}` : `Collapse ${title}`}><ChevronDown className="buttonIcon" aria-hidden="true" /></button></div>{collapsed ? null : <div className="settingsBlockBody">{children}</div>}</section>;
 }
 
-function RightPanel({ config, setConfig, materialSlots, activeMaterialSlot, setActiveMaterialSlot, updateMaterialSlot, addMaterialSlot, removeMaterialSlot, selectionCount, onReset, onShare, onExport }) {
+function RightPanel({ config, setConfig, materialSlots, activeMaterialSlot, setActiveMaterialSlot, updateMaterialSlot, addMaterialSlot, removeMaterialSlot, selectionCount, onReset, onShare, onExport, collapsed }) {
   const moduleHint = formatMeasure(MODULE_MM, config.units) + " module";
   const [collapsedBlocks, setCollapsedBlocks] = useState({});
   function toggleBlock(blockKey) {
     setCollapsedBlocks((previous) => ({ ...previous, [blockKey]: !previous[blockKey] }));
   }
-  return <aside className="rightPanel"><div className="panelHeader inspectorHeader"><div><div className="panelTitle">Inspector</div><div className="panelSub">{selectionCount} selected tile{selectionCount === 1 ? "" : "s"}</div></div><button className="iconButton" onClick={onReset} title="Reset Configuration"><RotateCcw className="buttonIcon" aria-hidden="true" /></button></div><div className="panelScroll settingsScroll"><MaterialPalette materialSlots={materialSlots} activeMaterialSlot={activeMaterialSlot} setActiveMaterialSlot={setActiveMaterialSlot} updateMaterialSlot={updateMaterialSlot} addMaterialSlot={addMaterialSlot} removeMaterialSlot={removeMaterialSlot} /><CollapsibleSettingsBlock title="Grid" collapsed={Boolean(collapsedBlocks.grid)} onToggle={() => toggleBlock("grid")}><Stepper label="Width" value={config.width} min={1} max={10} hint={moduleHint} onChange={(value) => setConfig({ width: value })} /><Stepper label="Depth" value={config.depth} min={1} max={10} hint={moduleHint} onChange={(value) => setConfig({ depth: value })} /><Stepper label="Height" value={config.height} min={1} max={8} hint={moduleHint} onChange={(value) => setConfig({ height: value })} /><div className="sizeBox">Size: <b>{formatConfigSize(config)}</b></div></CollapsibleSettingsBlock><CollapsibleSettingsBlock title="Walls" collapsed={Boolean(collapsedBlocks.walls)} onToggle={() => toggleBlock("walls")}><Toggle label="Back Wall" value={config.backWall} onChange={(value) => setConfig({ backWall: value })} /><Toggle label="Left Wall" value={config.leftWall} onChange={(value) => setConfig({ leftWall: value })} /><Toggle label="Right Wall" value={config.rightWall} onChange={(value) => setConfig({ rightWall: value })} /></CollapsibleSettingsBlock></div><div className="panelFooter twoButtons"><button className="panelButton" onClick={onShare}><Share2 className="buttonIcon" aria-hidden="true" />Share</button><button className="panelButton primary" onClick={onExport}><Download className="buttonIcon" aria-hidden="true" />Export</button></div></aside>;
+  return <aside className={cx("rightPanel", collapsed ? "collapsed" : "")} aria-hidden={collapsed}><div className="panelHeader inspectorHeader"><div><div className="panelTitle">Inspector</div><div className="panelSub">{selectionCount} selected tile{selectionCount === 1 ? "" : "s"}</div></div><button className="iconButton" onClick={onReset} title="Reset Configuration"><RotateCcw className="buttonIcon" aria-hidden="true" /></button></div><div className="panelScroll settingsScroll"><MaterialPalette materialSlots={materialSlots} activeMaterialSlot={activeMaterialSlot} setActiveMaterialSlot={setActiveMaterialSlot} updateMaterialSlot={updateMaterialSlot} addMaterialSlot={addMaterialSlot} removeMaterialSlot={removeMaterialSlot} /><CollapsibleSettingsBlock title="Grid" collapsed={Boolean(collapsedBlocks.grid)} onToggle={() => toggleBlock("grid")}><Stepper label="Width" value={config.width} min={1} max={10} hint={moduleHint} onChange={(value) => setConfig({ width: value })} /><Stepper label="Depth" value={config.depth} min={1} max={10} hint={moduleHint} onChange={(value) => setConfig({ depth: value })} /><Stepper label="Height" value={config.height} min={1} max={8} hint={moduleHint} onChange={(value) => setConfig({ height: value })} /><div className="sizeBox">Size: <b>{formatConfigSize(config)}</b></div></CollapsibleSettingsBlock><CollapsibleSettingsBlock title="Walls" collapsed={Boolean(collapsedBlocks.walls)} onToggle={() => toggleBlock("walls")}><Toggle label="Back Wall" value={config.backWall} onChange={(value) => setConfig({ backWall: value })} /><Toggle label="Left Wall" value={config.leftWall} onChange={(value) => setConfig({ leftWall: value })} /><Toggle label="Right Wall" value={config.rightWall} onChange={(value) => setConfig({ rightWall: value })} /></CollapsibleSettingsBlock></div><div className="panelFooter twoButtons"><button className="panelButton" onClick={onShare}><Share2 className="buttonIcon" aria-hidden="true" />Share</button><button className="panelButton primary" onClick={onExport}><Download className="buttonIcon" aria-hidden="true" />Export</button></div></aside>;
 }
 
 function Toolbar({ activeTool, setActiveTool, selectedCount, units, setUnits, showRuler, setShowRuler, showGrid, setShowGrid, onGroup, onRotate, onFlip, onPaint }) {
@@ -1135,6 +1135,8 @@ export default function App() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [showRuler, setShowRuler] = useState(true);
   const [showGrid, setShowGrid] = useState(true);
+  const [builderOpen, setBuilderOpen] = useState(true);
+  const [inspectorOpen, setInspectorOpen] = useState(true);
   const [tiles, setTiles] = useState(() => makeTiles(DEFAULT_CONFIG));
   const activeMaterial = materialSlots.find((slot) => slot.slot === activeMaterialSlot) || materialSlots[0] || DEFAULT_MATERIAL_SLOTS[0];
   const activeColor = activeMaterial.color;
@@ -1261,13 +1263,13 @@ export default function App() {
 
   return <div className="appShell"><style>{`
     @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
-    :root { --bg: #f7f6f2; --viewport: #fbfaf7; --panel: rgba(255,255,255,0.88); --panel2: #ffffff; --border: #e8e5df; --text: #111111; --muted: #777777; --active: #111111; --soft: #f2f2f2; --measure: #111111; --frame-radius: 18px; --control-height: 36px; --icon-button-size: 36px; --icon-glyph-size: 18px; --icon-stroke-width: 2.2; --app-header-height: 86px; }
+    :root { --bg: #f7f6f2; --viewport: #fbfaf7; --panel: rgba(255,255,255,0.88); --panel2: #ffffff; --border: #e8e5df; --text: #111111; --muted: #777777; --active: #111111; --soft: #f2f2f2; --measure: #111111; --frame-radius: 18px; --control-height: 36px; --icon-button-size: 36px; --icon-glyph-size: 18px; --icon-stroke-width: 2.2; --app-header-height: 64px; --edge-gap: 14px; --panel-edge-gap: var(--edge-gap); --left-panel-width: 348px; --right-panel-width: 322px; --rail-gap: 8px; }
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--bg); font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; line-height: 1.35; font-weight: 400; color: #111111; }
     button, select, input { font: inherit; }
     button { cursor: pointer; }
     .appShell { width: 100vw; height: 100vh; overflow: hidden; display: flex; flex-direction: column; background: radial-gradient(circle at 52% 52%, #ffffff 0 24%, #fbfaf7 50%, #f7f6f2 100%); color: var(--text); font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; line-height: 1.35; font-weight: 400; font-optical-sizing: auto; -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision; }
-    .appTopBar { height: var(--app-header-height); flex: 0 0 var(--app-header-height); display: grid; grid-template-columns: 170px 1fr auto; align-items: center; gap: 24px; padding: 0 42px; position: relative; z-index: 40; background: transparent; pointer-events: none; }
+    .appTopBar { height: var(--app-header-height); flex: 0 0 var(--app-header-height); display: grid; grid-template-columns: 170px 1fr auto; align-items: center; gap: 8px; padding: 0 var(--edge-gap); position: relative; z-index: 40; background: transparent; pointer-events: none; }
     .appTopBar button { pointer-events: auto; }
     .brandLockup { display: flex; align-items: center; gap: 11px; font-size: 18px; font-weight: 700; letter-spacing: -0.03em; }
     .brandMark { width: 30px; height: 30px; border-radius: 7px; background: #0d0e10; display: block; position: relative; box-shadow: 0 10px 22px rgba(0,0,0,0.12); }
@@ -1285,14 +1287,25 @@ export default function App() {
     .avatar { width: var(--icon-button-size); height: var(--icon-button-size); margin-left: -6px; border-radius: var(--frame-radius); display: grid; place-items: center; background: #111111; color: #ffffff; }
     .topIcon { width: var(--icon-glyph-size); height: var(--icon-glyph-size); stroke-width: var(--icon-stroke-width); }
     .mainLayout { position: relative; flex: 1; min-height: 0; display: block; overflow: visible; }
-    .sideRail { position: absolute; z-index: 28; left: 414px; top: 50%; transform: translateY(-50%); display: grid; gap: 18px; }
-    .railButton { width: var(--icon-button-size); height: var(--icon-button-size); border-radius: var(--frame-radius); border: 1px solid #e8e5df; background: #ffffff; color: #6f6f6f; display: grid; place-items: center; box-shadow: 0 14px 35px rgba(33,35,38,0.08); }
+    .revealZone { position: absolute; top: 0; bottom: 0; z-index: 19; pointer-events: auto; }
+    .builderRevealZone { left: 0; width: calc(var(--edge-gap) + var(--left-panel-width) + var(--rail-gap) + var(--icon-button-size)); }
+    .inspectorRevealZone { right: 0; width: calc(var(--edge-gap) + var(--right-panel-width) + var(--rail-gap) + var(--icon-button-size)); }
+    .sideRail { position: absolute; z-index: 28; left: calc(var(--edge-gap) + var(--left-panel-width) + var(--rail-gap)); top: 50%; transform: translateY(-50%); display: grid; gap: 18px; opacity: 0; pointer-events: none; transition: left 240ms ease, opacity 160ms ease; }
+    .builderCollapsed .sideRail { left: var(--edge-gap); }
+    .builderCollapsed .sideRail, .builderRevealZone:hover ~ .sideRail, .sideRail:hover, .mainLayout:has(.leftPanel:hover) .sideRail { opacity: 1; pointer-events: auto; }
+    .inspectorToggle { position: absolute; z-index: 28; right: calc(var(--edge-gap) + var(--right-panel-width) + var(--rail-gap)); top: 50%; transform: translateY(-50%); width: var(--icon-button-size); height: var(--icon-button-size); border: 1px solid #e8e5df; border-radius: 999px; background: #ffffff; color: #6f6f6f; display: grid; place-items: center; opacity: 0; pointer-events: none; box-shadow: 0 14px 35px rgba(33,35,38,0.08); transition: right 240ms ease, opacity 160ms ease, background 160ms ease, border-color 160ms ease, color 160ms ease; }
+    .inspectorCollapsed .inspectorToggle { right: var(--edge-gap); }
+    .inspectorCollapsed .inspectorToggle, .inspectorRevealZone:hover ~ .inspectorToggle, .inspectorToggle:hover, .mainLayout:has(.rightPanel:hover) .inspectorToggle { opacity: 1; pointer-events: auto; }
+    .inspectorToggle.active { background: #111111; border-color: #111111; color: #ffffff; }
+    .railButton { width: var(--icon-button-size); height: var(--icon-button-size); border-radius: var(--frame-radius); border: 1px solid #e8e5df; background: #ffffff; color: #6f6f6f; display: grid; place-items: center; box-shadow: 0 14px 35px rgba(33,35,38,0.08); transition: background 160ms ease, border-color 160ms ease, color 160ms ease; }
     .railButton.active { background: #111111; border-color: #111111; color: #ffffff; }
     .railIcon { width: var(--icon-glyph-size); height: var(--icon-glyph-size); stroke-width: var(--icon-stroke-width); }
     .panelButton:hover, .iconButton:hover { border-color: #e8e5df; color: #111111; background: #f2f2f2; }
-    .leftPanel, .rightPanel { position: absolute; z-index: 20; top: 22px; bottom: 22px; min-height: 0; display: flex; flex-direction: column; border: 1px solid #e8e5df; border-radius: var(--frame-radius); background: var(--panel); -webkit-backdrop-filter: blur(18px) saturate(118%); backdrop-filter: blur(18px) saturate(118%); box-shadow: 0 28px 72px rgba(33,35,38,0.11), 0 2px 8px rgba(33,35,38,0.04), inset 0 1px 0 rgba(255,255,255,0.92); overflow: hidden; }
-    .leftPanel { left: 42px; width: 348px; bottom: auto; max-height: calc(100% - 44px); }
-    .rightPanel { right: 42px; width: 322px; bottom: auto; max-height: calc(100% - 44px); }
+    .leftPanel, .rightPanel { position: absolute; z-index: 20; top: var(--panel-edge-gap); bottom: var(--panel-edge-gap); min-height: 0; display: flex; flex-direction: column; border: 1px solid #e8e5df; border-radius: var(--frame-radius); background: var(--panel); -webkit-backdrop-filter: blur(18px) saturate(118%); backdrop-filter: blur(18px) saturate(118%); box-shadow: 0 28px 72px rgba(33,35,38,0.11), 0 2px 8px rgba(33,35,38,0.04), inset 0 1px 0 rgba(255,255,255,0.92); overflow: hidden; }
+    .leftPanel { left: var(--edge-gap); width: var(--left-panel-width); bottom: auto; max-height: calc(100% - (var(--panel-edge-gap) * 2)); transition: transform 240ms ease, opacity 180ms ease; }
+    .leftPanel.collapsed { transform: translateX(calc(-100% - var(--edge-gap))); opacity: 0; pointer-events: none; }
+    .rightPanel { right: var(--edge-gap); width: var(--right-panel-width); bottom: auto; max-height: calc(100% - (var(--panel-edge-gap) * 2)); transition: transform 240ms ease, opacity 180ms ease; }
+    .rightPanel.collapsed { transform: translateX(calc(100% + var(--edge-gap))); opacity: 0; pointer-events: none; }
     .panelHeader { padding: 18px; border-bottom: 1px solid rgba(45,47,51,0.07); background: rgba(255,255,255,0.42); }
     .panelTitle { font-size: 14px; font-weight: 700; letter-spacing: -0.02em; }
     .leftPanel .panelTitle { font-size: 30px; line-height: 1; font-weight: 800; letter-spacing: -0.045em; }
@@ -1410,7 +1423,7 @@ export default function App() {
     .viewport::before { content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; background: linear-gradient(90deg, rgba(255,255,255,0.62) 0%, rgba(255,255,255,0.08) 42%, rgba(182,173,159,0.12) 100%); }
     .threeHost { position: absolute; inset: 0; z-index: 1; }
     .threeHost canvas { display: block; width: 100%; height: 100%; }
-    .floatingToolbar { position: absolute; z-index: 30; top: calc(var(--app-header-height) + 22px); left: 50%; transform: translateX(-50%); display: flex; gap: 7px; padding: 8px; border: 1px solid #e8e5df; border-radius: var(--frame-radius); background: rgba(255,255,255,0.78); -webkit-backdrop-filter: blur(18px) saturate(125%); backdrop-filter: blur(18px) saturate(125%); box-shadow: 0 18px 45px rgba(33,35,38,0.1), inset 0 1px 0 rgba(255,255,255,0.86); }
+    .floatingToolbar { position: absolute; z-index: 30; top: calc(var(--app-header-height) + var(--edge-gap)); left: 50%; transform: translateX(-50%); display: flex; gap: 7px; padding: 8px; border: 1px solid #e8e5df; border-radius: var(--frame-radius); background: rgba(255,255,255,0.78); -webkit-backdrop-filter: blur(18px) saturate(125%); backdrop-filter: blur(18px) saturate(125%); box-shadow: 0 18px 45px rgba(33,35,38,0.1), inset 0 1px 0 rgba(255,255,255,0.86); }
     .toolButton { width: var(--icon-button-size); height: var(--icon-button-size); border: 1px solid #e8e5df; border-radius: 11px; background: #ffffff; color: #6f6f6f; display: grid; place-items: center; }
     .unitToolButton { width: var(--icon-button-size); }
     .toolButton.active { background: #111111; border-color: #111111; color: #ffffff; }
@@ -1421,30 +1434,30 @@ export default function App() {
     }
     .miniIcon { width: var(--icon-glyph-size); height: var(--icon-glyph-size); stroke-width: var(--icon-stroke-width); }
     .unitIcon { font-size: 10px; line-height: 1; font-weight: 800; text-transform: uppercase; letter-spacing: 0; }
-    .viewportBadge { position: absolute; z-index: 10; right: 374px; top: calc(var(--app-header-height) + 22px); height: var(--control-height); display: inline-flex; align-items: center; border: 1px solid #e8e5df; border-radius: var(--frame-radius); background: rgba(255,255,255,0.68); color: #111111; font-size: 12px; font-weight: 700; letter-spacing: -0.015em; padding: 0 14px; pointer-events: none; backdrop-filter: blur(14px); }
+    .viewportBadge { position: absolute; z-index: 10; right: calc(var(--edge-gap) + var(--right-panel-width) + 10px); top: calc(var(--app-header-height) + var(--edge-gap)); height: var(--control-height); display: inline-flex; align-items: center; border: 1px solid #e8e5df; border-radius: var(--frame-radius); background: rgba(255,255,255,0.68); color: #111111; font-size: 12px; font-weight: 700; letter-spacing: -0.015em; padding: 0 14px; pointer-events: none; backdrop-filter: blur(14px); }
     @media (max-width: 1180px) {
-      .appTopBar { grid-template-columns: 150px 1fr auto; gap: 14px; padding: 0 20px; }
-      .sideRail { display: none; }
-      .leftPanel { width: 300px; left: 16px; }
-      .rightPanel { width: 300px; right: 16px; }
+      .appTopBar { grid-template-columns: 150px 1fr auto; gap: 5px; padding: 0 7px; }
+      .sideRail, .inspectorToggle, .revealZone { display: none; }
+      .leftPanel { width: 300px; left: 5px; }
+      .rightPanel { width: 300px; right: 5px; }
       .leftPanel .panelTitle { font-size: 30px; }
       .viewportBadge { right: 336px; }
     }
     @media (max-width: 1020px) {
-      .leftPanel { width: 272px; left: 12px; }
-      .rightPanel { width: 292px; right: 12px; }
+      .leftPanel { width: 272px; left: 4px; }
+      .rightPanel { width: 292px; right: 4px; }
       .viewportBadge { right: 318px; }
     }
     @media (max-width: 880px) {
       .appTopBar { display: none; }
       .viewport { top: 0; }
-      .leftPanel, .rightPanel { left: 12px; right: 12px; width: auto; top: auto; bottom: auto; max-height: calc(50vh - 22px); border-radius: var(--frame-radius); }
-      .leftPanel { top: 12px; }
-      .rightPanel { bottom: 12px; }
+      .leftPanel, .rightPanel { left: 4px; right: 4px; width: auto; top: auto; bottom: auto; max-height: calc(50vh - 8px); border-radius: var(--frame-radius); }
+      .leftPanel { top: 4px; }
+      .rightPanel { bottom: 4px; }
       .panelHeader { padding: 12px; }
       .panelScroll { padding: 10px; }
       .floatingToolbar { top: calc(50vh - 23px); }
       .viewportBadge { display: none; }
     }
-  `}</style><AppTopBar config={config} /><div className="mainLayout"><SideRail /><LeftPanel config={config} setConfig={updateConfig} printList={printList} onApplyLibraryItem={applyLibraryModel} onCopy={copyBuildList} onDownload={downloadTxt} /><Viewport config={config} setConfig={updateConfig} tiles={tiles} setTiles={setTiles} selectedIds={selectedIds} setSelectedIds={setSelectedIds} activeColor={activeColor} activeMaterialSlot={activeMaterial.slot} activeMaterialLabel={activeMaterialLabel} showRuler={showRuler} setShowRuler={setShowRuler} showGrid={showGrid} setShowGrid={setShowGrid} /><RightPanel config={config} setConfig={updateConfig} materialSlots={materialSlots} activeMaterialSlot={activeMaterialSlot} setActiveMaterialSlot={setActiveMaterialSlot} updateMaterialSlot={updateMaterialSlot} addMaterialSlot={addMaterialSlot} removeMaterialSlot={removeMaterialSlot} selectionCount={selectedIds.length} onReset={resetConfiguration} onShare={shareBuildList} onExport={downloadTxt} /></div></div>;
+  `}</style><AppTopBar config={config} /><div className={cx("mainLayout", builderOpen ? "" : "builderCollapsed", inspectorOpen ? "" : "inspectorCollapsed")}><div className="revealZone builderRevealZone" /><div className="revealZone inspectorRevealZone" /><SideRail builderOpen={builderOpen} onToggleBuilder={() => setBuilderOpen((value) => !value)} /><button className={cx("inspectorToggle", inspectorOpen ? "active" : "")} onClick={() => setInspectorOpen((value) => !value)} title={inspectorOpen ? "Hide Inspector" : "Show Inspector"} aria-pressed={inspectorOpen}><Info className="railIcon" aria-hidden="true" /></button><LeftPanel collapsed={!builderOpen} config={config} setConfig={updateConfig} printList={printList} onApplyLibraryItem={applyLibraryModel} onCopy={copyBuildList} onDownload={downloadTxt} /><Viewport config={config} setConfig={updateConfig} tiles={tiles} setTiles={setTiles} selectedIds={selectedIds} setSelectedIds={setSelectedIds} activeColor={activeColor} activeMaterialSlot={activeMaterial.slot} activeMaterialLabel={activeMaterialLabel} showRuler={showRuler} setShowRuler={setShowRuler} showGrid={showGrid} setShowGrid={setShowGrid} /><RightPanel collapsed={!inspectorOpen} config={config} setConfig={updateConfig} materialSlots={materialSlots} activeMaterialSlot={activeMaterialSlot} setActiveMaterialSlot={setActiveMaterialSlot} updateMaterialSlot={updateMaterialSlot} addMaterialSlot={addMaterialSlot} removeMaterialSlot={removeMaterialSlot} selectionCount={selectedIds.length} onReset={resetConfiguration} onShare={shareBuildList} onExport={downloadTxt} /></div></div>;
 }
