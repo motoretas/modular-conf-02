@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { BarChart3, Bell, ChevronDown, ClipboardList, Download, FlipHorizontal, Grid3X3, Group, Home, Info, Map, MessageCircle, Minus, MousePointer2, PaintBucket, Plus, RotateCcw, RotateCw, Ruler, Search, Share2, UserRound, Users } from "lucide-react";
+import { ArrowDown, ArrowUp, BarChart3, Bell, Boxes, ChevronDown, Clock, ClipboardList, Download, FileText, Filter, FlipHorizontal, Grid3X3, Group, Home, Layers3, Map, MessageCircle, Minus, MousePointer2, PaintBucket, Plus, Printer, RotateCcw, RotateCw, Ruler, Search, UserRound, Users } from "lucide-react";
 
 const MODULE_MM = 50;
 const UNIT = 0.5;
@@ -124,15 +124,15 @@ const PANEL_MODEL_BY_ACTION = {
 };
 const PANEL_MODEL_IDS = new Set(Object.values(PANEL_MODEL_BY_ACTION));
 const LIBRARY_ITEMS = [
-  { key: "plain", label: "Plain Tile", family: "floor", iconSrc: "/icons/SCIFI_FLOOR_1x1_A.svg" },
-  { key: "corner", label: "Corner Slots", family: "floor", iconSrc: "/icons/SCIFI_FLOOR_1x1_B.svg" },
-  { key: "louver", label: "Louver", family: "floor", iconSrc: "/icons/SCIFI_FLOOR_1x1_C.svg" },
-  { key: "modular", label: "Wall Light", family: "wall", iconSrc: "/icons/SCIFI_WALL_1x1_A.svg" },
-  { key: "hatch", label: "Hatch", family: "wall", iconSrc: "/icons/SCIFI_WALL_1x1_B.svg" },
-  { key: "vent", label: "Vent", family: "wall", iconSrc: "/icons/SCIFI_WALL_1x1_C.svg" },
-  { key: "panel_light", label: "Panel Light", family: "wall", iconSrc: "/icons/SCIFI_WALL_1x3_A.svg" },
-  { key: "panel_hatch", label: "Panel Hatch", family: "wall", iconSrc: "/icons/SCIFI_WALL_1x3_B.svg" },
-  { key: "panel_vent", label: "Panel Vent", family: "wall", iconSrc: "/icons/SCIFI_WALL_1x3_A.svg" }
+  { key: "plain", label: "1x1 Plain Panel", family: "floor", previewSrc: "/images/tiles/SCIFI_FLOOR_1x1_A.png" },
+  { key: "corner", label: "1x1 Corner Slot Panel", family: "floor", previewSrc: "/images/tiles/SCIFI_FLOOR_1x1_B.png" },
+  { key: "louver", label: "1x1 Quad Access Panel", family: "floor", previewSrc: "/images/tiles/SCIFI_FLOOR_1x1_C.png" },
+  { key: "modular", label: "1x1 Light Slot Panel", family: "wall", previewSrc: "/images/tiles/SCIFI_WALL_1x1_A.png" },
+  { key: "hatch", label: "1x1 Vent Grille Panel", family: "wall", previewSrc: "/images/tiles/SCIFI_WALL_1x1_B.png" },
+  { key: "vent", label: "1x1 Inset Service Panel", family: "wall", previewSrc: "/images/tiles/SCIFI_WALL_1x1_C.png" },
+  { key: "panel_light", label: "1x3 Light Slot Panel", family: "wall", previewSrc: "/images/tiles/SCIFI_WALL_1x3_A.png" },
+  { key: "panel_hatch", label: "1x3 Narrow Service Hatch", family: "wall", previewSrc: "/images/tiles/SCIFI_WALL_1x3_B.png" },
+  { key: "panel_vent", label: "1x3 Vertical Access Panel", family: "wall", previewSrc: "/images/tiles/SCIFI_WALL_1x3_C.png" }
 ];
 const TOOLBAR = [
   { key: "select", label: "Select", Icon: MousePointer2 },
@@ -932,6 +932,7 @@ if (typeof window !== "undefined" && !window.__MODULAR_DIORAMA_THREE_VANILLA_TES
 }
 
 function MiniIcon({ Icon }) { return <Icon className="miniIcon" aria-hidden="true" />; }
+function TitleWithIcon({ Icon, children }) { return <span className="titleWithIcon"><Icon className="titleIcon" aria-hidden="true" />{children}</span>; }
 
 function AppTopBar({ config }) {
   return <header className="appTopBar"><div className="brandLockup"><span className="brandMark" /><span>Modular</span></div><div /><div className="topProfileRow"><button className="roundAction"><MessageCircle className="topIcon" aria-hidden="true" /></button><button className="roundAction"><Bell className="topIcon" aria-hidden="true" /></button><button className="userPill"><span className="avatar"><UserRound className="topIcon" aria-hidden="true" /></span><span><b>Builder</b><small>{config.scale}</small></span><ChevronDown className="topIcon" aria-hidden="true" /></button></div></header>;
@@ -952,6 +953,9 @@ function Tag({ children, active }) { return <span className={active ? "tag activ
 function LibraryBrowser({ config, setConfig, onApply }) {
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [sortMode, setSortMode] = useState("name");
+  const [sortDirection, setSortDirection] = useState("asc");
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
   const normalizedQuery = query.trim().toLowerCase();
   const categoryOptions = [
     { value: "all", label: "All" },
@@ -960,6 +964,13 @@ function LibraryBrowser({ config, setConfig, onApply }) {
     { value: "connector", label: "Connector" },
     { value: "trim", label: "Trim" },
     { value: "accessory", label: "Accessory" }
+  ];
+  const sortOptions = [
+    { value: "name", label: "Name" },
+    { value: "category", label: "Category" },
+    { value: "footprint", label: "Footprint" },
+    { value: "height", label: "Height" },
+    { value: "supports", label: "Supports" }
   ];
   const items = LIBRARY_ITEMS.map((item) => {
     const modelId = getModelForLibraryAction(item.key);
@@ -986,9 +997,33 @@ function LibraryBrowser({ config, setConfig, onApply }) {
     const assetCategory = item.asset ? item.asset.category : item.family;
     const matchesCategory = categoryFilter === "all" || assetCategory === categoryFilter || item.family === categoryFilter;
     return matchesQuery && matchesTheme && matchesCategory;
+  }).sort((a, b) => {
+    const assetA = a.asset || {};
+    const assetB = b.asset || {};
+    const direction = sortDirection === "asc" ? 1 : -1;
+    let result = a.label.localeCompare(b.label);
+    if (sortMode === "category") result = (assetA.category || a.family).localeCompare(assetB.category || b.family) || a.label.localeCompare(b.label);
+    if (sortMode === "footprint") result = ((assetA.width_mm || 0) * (assetA.depth_mm || 0)) - ((assetB.width_mm || 0) * (assetB.depth_mm || 0)) || a.label.localeCompare(b.label);
+    if (sortMode === "height") result = (assetA.height_mm || 0) - (assetB.height_mm || 0) || a.label.localeCompare(b.label);
+    if (sortMode === "supports") result = Number(Boolean(assetA.supports)) - Number(Boolean(assetB.supports)) || a.label.localeCompare(b.label);
+    return result * direction;
   });
 
-  return <div className="libraryPanel"><label className="librarySearch"><Search className="searchIcon" aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by name, supports, flat..." /></label><div className="libraryFilters"><div className="librarySectionTitle">Filter</div><div className="libraryFilterRow"><label className="libraryFilterControl"><span>Scale</span><select value={config.scale} onChange={(event) => setConfig({ scale: event.target.value })}>{SCALE_OPTIONS.map((scale) => <option key={scale}>{scale}</option>)}</select></label><label className="libraryFilterControl"><span>Theme</span><select value={config.theme} onChange={(event) => setConfig({ theme: event.target.value })}>{THEME_OPTIONS.map((theme) => <option key={theme}>{theme}</option>)}</select></label></div><div className="libraryFilterLabel">Category</div><div className="libraryCategoryRow">{categoryOptions.map((category) => <button key={category.value} className={cx("libraryChip", categoryFilter === category.value ? "active" : "")} onClick={() => setCategoryFilter(category.value)}>{category.label}</button>)}</div></div><div className="libraryGrid">{items.map((item) => <button className="libraryCard" key={item.key} onClick={() => onApply(item.key)} title={item.asset ? item.asset.name : item.label}><span className="libraryThumb"><img src={item.iconSrc} alt="" /></span><span className="libraryCardName">{item.label}</span><span className="libraryCardMeta">{item.asset ? item.asset.print_orientation : item.family}</span><span className="tagRow"><Tag>{item.family}</Tag>{item.asset ? <Tag active={!item.asset.supports}>{item.asset.supports ? "Supports" : "No supports"}</Tag> : null}</span></button>)}</div>{items.length === 0 ? <div className="emptyLine">No parts match that search.</div> : null}</div>;
+  return <div className="libraryPanel">
+    <label className="librarySearch"><Search className="searchIcon" aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by name, supports, flat..." /></label>
+    <div className={cx("libraryFilters", filtersCollapsed ? "collapsed" : "")}>
+      <div className="librarySectionHeader"><div className="librarySectionTitle"><TitleWithIcon Icon={Filter}>Filter</TitleWithIcon></div><button className={cx("materialAction", filtersCollapsed ? "collapsed" : "")} onClick={() => setFiltersCollapsed((value) => !value)} title={filtersCollapsed ? "Expand Filter" : "Collapse Filter"}><ChevronDown className="buttonIcon" aria-hidden="true" /></button></div>
+      {filtersCollapsed ? null : <><div className="libraryFilterRow">
+        <label className="libraryFilterControl"><span>Scale</span><select value={config.scale} onChange={(event) => setConfig({ scale: event.target.value })}>{SCALE_OPTIONS.map((scale) => <option key={scale}>{scale}</option>)}</select></label>
+        <label className="libraryFilterControl"><span>Theme</span><select value={config.theme} onChange={(event) => setConfig({ theme: event.target.value })}>{THEME_OPTIONS.map((theme) => <option key={theme}>{theme}</option>)}</select></label>
+      </div>
+      <div className="libraryFilterLabel">Category</div>
+      <div className="libraryCategoryRow">{categoryOptions.map((category) => <button key={category.value} className={cx("libraryChip", categoryFilter === category.value ? "active" : "")} onClick={() => setCategoryFilter(category.value)}>{category.label}</button>)}</div></>}
+    </div>
+    <div className="librarySort"><div className="librarySectionTitle"><TitleWithIcon Icon={BarChart3}>Sort</TitleWithIcon></div><label className="libraryFilterControl librarySortControl"><span>By</span><select value={sortMode} onChange={(event) => setSortMode(event.target.value)}>{sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><button className="librarySortButton" type="button" onClick={() => setSortDirection((value) => value === "asc" ? "desc" : "asc")} title={sortDirection === "asc" ? "Sort descending" : "Sort ascending"}>{sortDirection === "asc" ? <ArrowUp className="buttonIcon" aria-hidden="true" /> : <ArrowDown className="buttonIcon" aria-hidden="true" />}</button></div>
+    <div className="libraryGrid">{items.map((item) => <div className="libraryCard" key={item.key} title={item.asset ? item.asset.name : item.label}><span className="libraryThumb"><img src={item.previewSrc} alt="" /></span><span className="libraryCardFooter"><span className="libraryCardName">{item.label}</span><button className="libraryAddButton" type="button" onClick={() => onApply(item.key)} title={`Apply ${item.label}`} aria-label={`Apply ${item.label}`}><Plus className="buttonIcon" aria-hidden="true" /></button></span></div>)}</div>
+    {items.length === 0 ? <div className="emptyLine">No parts match that search.</div> : null}
+  </div>;
 }
 
 function BuildList({ printList }) {
@@ -996,17 +1031,8 @@ function BuildList({ printList }) {
   return <>{Object.keys(labels).map((category) => { const items = printList[category] || []; const total = items.reduce((sum, item) => sum + item.quantity, 0); return <section className="printGroup" key={category}><div className="groupHeader"><span>{labels[category]}</span><span>{total} pcs</span></div><div className="groupBody">{items.length === 0 ? <div className="emptyLine">No parts required.</div> : null}{items.map((entry) => <div className="partCard" key={entry.asset.id}><div className="partName"><b>{entry.quantity}×</b> {entry.asset.name}</div><div className="fileName">{entry.asset.file_stl}</div><div className="tagRow"><Tag active={entry.asset.print_orientation === "Face-down"}>{entry.asset.print_orientation}</Tag><Tag active={!entry.asset.supports}>{entry.asset.supports ? "Supports" : "No supports"}</Tag>{entry.asset.bed_texture_finish ? <Tag active>Bed texture finish</Tag> : null}</div></div>)}</div></section>; })}</>;
 }
 
-function AssetsList() {
-  return <div className="assetList">{CATALOG.map((asset) => <div className="assetCard" key={asset.id}><div className="assetName">{asset.name}</div><div className="assetId">{asset.id}</div><div className="tagRow"><Tag>{asset.category}</Tag><Tag>{asset.variant}</Tag></div></div>)}</div>;
-}
-
-function LeftPanel({ config, setConfig, printList, onApplyLibraryItem, onCopy, onDownload, collapsed }) {
-  const [collapsedBlocks, setCollapsedBlocks] = useState({});
-  function toggleBlock(blockKey) {
-    setCollapsedBlocks((previous) => ({ ...previous, [blockKey]: !previous[blockKey] }));
-  }
-
-  return <aside className={cx("leftPanel", collapsed ? "collapsed" : "")} aria-hidden={collapsed}><div className="panelHeader"><div className="panelTitle">Diorama Configurator</div><div className="panelSub">Printable modular 3D scene builder</div></div><div className="panelScroll settingsScroll"><CollapsibleSettingsBlock title="Library" collapsed={Boolean(collapsedBlocks.library)} onToggle={() => toggleBlock("library")}><LibraryBrowser config={config} setConfig={setConfig} onApply={onApplyLibraryItem} /></CollapsibleSettingsBlock><CollapsibleSettingsBlock title="Build" collapsed={Boolean(collapsedBlocks.build)} onToggle={() => toggleBlock("build")}><BuildList printList={printList} /></CollapsibleSettingsBlock><CollapsibleSettingsBlock title="Assets" collapsed={Boolean(collapsedBlocks.assets)} onToggle={() => toggleBlock("assets")}><AssetsList /></CollapsibleSettingsBlock></div><div className="panelFooter twoButtons"><button className="panelButton" onClick={onCopy}><ClipboardList className="buttonIcon" aria-hidden="true" />Copy Build List</button><button className="panelButton" onClick={onDownload}><Download className="buttonIcon" aria-hidden="true" />Download TXT</button></div></aside>;
+function LeftPanel({ config, setConfig, onApplyLibraryItem, collapsed }) {
+  return <aside className={cx("leftPanel", collapsed ? "collapsed" : "")} aria-hidden={collapsed}><div className="panelHeader"><div className="panelTitle"><TitleWithIcon Icon={Boxes}>Library</TitleWithIcon></div><div className="panelSub">Browse modular parts for the scene.</div></div><div className="panelScroll settingsScroll"><LibraryBrowser config={config} setConfig={setConfig} onApply={onApplyLibraryItem} /></div></aside>;
 }
 
 function Stepper({ label, value, min, max, onChange, hint = "50 mm module" }) {
@@ -1017,7 +1043,7 @@ function Toggle({ label, value, onChange }) {
   return <div className="toggleRow"><span>{label}</span><button className={value ? "toggle on" : "toggle"} onClick={() => onChange(!value)}>{value ? "Yes" : "No"}</button></div>;
 }
 
-function MaterialPalette({ materialSlots, activeMaterialSlot, setActiveMaterialSlot, updateMaterialSlot, addMaterialSlot, removeMaterialSlot }) {
+function MaterialPalette({ materialSlots, activeMaterialSlot, setActiveMaterialSlot, updateMaterialSlot, addMaterialSlot, removeMaterialSlot, dragHandleProps = {} }) {
   const [collapsedSlots, setCollapsedSlots] = useState({});
   const allCollapsed = materialSlots.length > 0 && materialSlots.every((slot) => collapsedSlots[slot.slot]);
 
@@ -1033,20 +1059,44 @@ function MaterialPalette({ materialSlots, activeMaterialSlot, setActiveMaterialS
     setCollapsedSlots(Object.fromEntries(materialSlots.map((slot) => [slot.slot, true])));
   }
 
-  return <section className="settingsBlock materialBlock"><div className="materialHeader"><div className="settingsTitle">Material</div><div className="materialActions"><button className="materialAction" onClick={removeMaterialSlot} disabled={materialSlots.length <= 1} title="Remove last material"><Minus className="buttonIcon" aria-hidden="true" /></button><button className="materialAction" onClick={addMaterialSlot} disabled={materialSlots.length >= 8} title="Add material"><Plus className="buttonIcon" aria-hidden="true" /></button><button className={cx("materialAction", allCollapsed ? "collapsed" : "")} onClick={toggleAllMaterials} title={allCollapsed ? "Expand all materials" : "Collapse all materials"}><ChevronDown className="buttonIcon" aria-hidden="true" /></button></div></div><div className="materialList">{materialSlots.map((slot) => { const active = slot.slot === activeMaterialSlot; const collapsed = Boolean(collapsedSlots[slot.slot]); const brandMaterials = getMaterialsForBrand(slot.brand); const colorOptions = getColorsForMaterial(slot.brand, slot.material); return <div className={cx("materialRole", active ? "active" : "", collapsed ? "collapsed" : "")} key={slot.roleKey} onClick={() => setActiveMaterialSlot(slot.slot)}><div className="materialRoleHeader"><button className="materialPreview" style={{ "--material-color": slot.color }} onClick={() => setActiveMaterialSlot(slot.slot)} title={makeMaterialLabel(slot)} /><span className="materialSummary">{makeMaterialLabel(slot)}</span><button className="materialCollapse" onClick={(event) => { event.stopPropagation(); toggleCollapsed(slot.slot); }} title={collapsed ? "Expand material" : "Collapse material"}><ChevronDown className="buttonIcon" aria-hidden="true" /></button></div>{collapsed ? null : <><div className="materialRoleBody"><div className="materialControls"><label><span>Brand</span><select value={slot.brand} onChange={(event) => updateMaterialSlot(slot.slot, { brand: event.target.value })}>{getMaterialBrands().map((brand) => <option key={brand}>{brand}</option>)}</select></label><label><span>Material</span><select value={slot.material} onChange={(event) => updateMaterialSlot(slot.slot, { material: event.target.value })}>{brandMaterials.map((material) => <option key={material}>{material}</option>)}</select></label><label><span>Color</span><select value={slot.colorName} onChange={(event) => updateMaterialSlot(slot.slot, { colorName: event.target.value })}>{colorOptions.map((entry) => <option key={entry.name}>{entry.name}</option>)}</select></label></div></div><div className="swatchRow">{colorOptions.map((entry) => <button key={entry.name} className={cx("swatch", entry.name === slot.colorName ? "active" : "")} style={{ "--swatch": entry.color }} onClick={(event) => { event.stopPropagation(); updateMaterialSlot(slot.slot, { colorName: entry.name }); }} title={entry.name} />)}</div></>}</div>; })}</div></section>;
+  return <section className="settingsBlock materialBlock"><div className="materialHeader"><div className="settingsTitle dragHandle" {...dragHandleProps}><TitleWithIcon Icon={PaintBucket}>Material</TitleWithIcon></div><div className="materialActions"><button className="materialAction" onClick={removeMaterialSlot} disabled={materialSlots.length <= 1} title="Remove last material"><Minus className="buttonIcon" aria-hidden="true" /></button><button className="materialAction" onClick={addMaterialSlot} disabled={materialSlots.length >= 8} title="Add material"><Plus className="buttonIcon" aria-hidden="true" /></button><button className={cx("materialAction", allCollapsed ? "collapsed" : "")} onClick={toggleAllMaterials} title={allCollapsed ? "Expand all materials" : "Collapse all materials"}><ChevronDown className="buttonIcon" aria-hidden="true" /></button></div></div><div className="materialList">{materialSlots.map((slot) => { const active = slot.slot === activeMaterialSlot; const collapsed = Boolean(collapsedSlots[slot.slot]); const brandMaterials = getMaterialsForBrand(slot.brand); const colorOptions = getColorsForMaterial(slot.brand, slot.material); return <div className={cx("materialRole", active ? "active" : "", collapsed ? "collapsed" : "")} key={slot.roleKey} onClick={() => setActiveMaterialSlot(slot.slot)}><div className="materialRoleHeader"><button className="materialPreview" style={{ "--material-color": slot.color }} onClick={() => setActiveMaterialSlot(slot.slot)} title={makeMaterialLabel(slot)} /><span className="materialSummary">{makeMaterialLabel(slot)}</span><button className="materialCollapse" onClick={(event) => { event.stopPropagation(); toggleCollapsed(slot.slot); }} title={collapsed ? "Expand material" : "Collapse material"}><ChevronDown className="buttonIcon" aria-hidden="true" /></button></div>{collapsed ? null : <><div className="materialRoleBody"><div className="materialControls"><label><span>Brand</span><select value={slot.brand} onChange={(event) => updateMaterialSlot(slot.slot, { brand: event.target.value })}>{getMaterialBrands().map((brand) => <option key={brand}>{brand}</option>)}</select></label><label><span>Material</span><select value={slot.material} onChange={(event) => updateMaterialSlot(slot.slot, { material: event.target.value })}>{brandMaterials.map((material) => <option key={material}>{material}</option>)}</select></label><label><span>Color</span><select value={slot.colorName} onChange={(event) => updateMaterialSlot(slot.slot, { colorName: event.target.value })}>{colorOptions.map((entry) => <option key={entry.name}>{entry.name}</option>)}</select></label></div></div><div className="swatchRow">{colorOptions.map((entry) => <button key={entry.name} className={cx("swatch", entry.name === slot.colorName ? "active" : "")} style={{ "--swatch": entry.color }} onClick={(event) => { event.stopPropagation(); updateMaterialSlot(slot.slot, { colorName: entry.name }); }} title={entry.name} />)}</div></>}</div>; })}</div></section>;
 }
 
-function CollapsibleSettingsBlock({ title, collapsed, onToggle, children }) {
-  return <section className={cx("settingsBlock", "collapsibleBlock", collapsed ? "collapsed" : "")}><div className="settingsHeader"><div className="settingsTitle">{title}</div><button className={cx("materialAction", collapsed ? "collapsed" : "")} onClick={onToggle} title={collapsed ? `Expand ${title}` : `Collapse ${title}`}><ChevronDown className="buttonIcon" aria-hidden="true" /></button></div>{collapsed ? null : <div className="settingsBlockBody">{children}</div>}</section>;
+function CollapsibleSettingsBlock({ title, Icon, collapsed, onToggle, children, dragHandleProps = {} }) {
+  return <section className={cx("settingsBlock", "collapsibleBlock", collapsed ? "collapsed" : "")}><div className="settingsHeader"><div className="settingsTitle dragHandle" {...dragHandleProps}>{Icon ? <TitleWithIcon Icon={Icon}>{title}</TitleWithIcon> : title}</div><button className={cx("materialAction", collapsed ? "collapsed" : "")} onClick={onToggle} title={collapsed ? `Expand ${title}` : `Collapse ${title}`}><ChevronDown className="buttonIcon" aria-hidden="true" /></button></div>{collapsed ? null : <div className="settingsBlockBody">{children}</div>}</section>;
 }
 
-function RightPanel({ config, setConfig, materialSlots, activeMaterialSlot, setActiveMaterialSlot, updateMaterialSlot, addMaterialSlot, removeMaterialSlot, selectionCount, onReset, onShare, onExport, collapsed }) {
+function PrinterSettings() {
+  return <div className="printerSettings"><label><span>Brand</span><select defaultValue="Bambu Lab"><option>Bambu Lab</option><option>Prusa</option><option>Anycubic</option><option>Creality</option></select></label><label><span>Model</span><select defaultValue="A1 Mini"><option>A1 Mini</option><option>A1</option><option>P1S</option><option>X1 Carbon</option></select></label><div className="printerSpecGrid"><div className="printerSpec"><span>Build Volume</span><b>180 x 180 x 180 mm</b></div><label className="printerSpec printerSpecSelect"><span>Nozzle</span><select defaultValue="0.4"><option value="0.2">0.2 mm</option><option value="0.4">0.4 mm</option><option value="0.6">0.6 mm</option><option value="0.8">0.8 mm</option></select></label></div><label><span>Build Plate</span><select defaultValue="Textured PEI"><option>Textured PEI</option><option>Smooth PEI</option><option>Engineering Plate</option></select></label><div className="printStats"><div className="printStatsStack"><div className="printStat"><Layers3 className="printStatIcon" aria-hidden="true" /><span><b>Build Plate</b><em>x 3</em></span></div><div className="printStat"><Boxes className="printStatIcon accent" aria-hidden="true" /><span><b>Est. Filament</b><em>92 g</em></span></div></div><div className="printStat"><Clock className="printStatIcon" aria-hidden="true" /><span><b>Est. Build Time</b><em>8h 10m</em></span></div></div></div>;
+}
+
+function RightPanel({ config, setConfig, materialSlots, activeMaterialSlot, setActiveMaterialSlot, updateMaterialSlot, addMaterialSlot, removeMaterialSlot, printList, onReset, onCopy, onDownload, collapsed }) {
   const moduleHint = formatMeasure(MODULE_MM, config.units) + " module";
   const [collapsedBlocks, setCollapsedBlocks] = useState({});
+  const [blockOrder, setBlockOrder] = useState(["material", "printer", "grid", "walls", "build"]);
+  const [draggedBlock, setDraggedBlock] = useState(null);
   function toggleBlock(blockKey) {
     setCollapsedBlocks((previous) => ({ ...previous, [blockKey]: !previous[blockKey] }));
   }
-  return <aside className={cx("rightPanel", collapsed ? "collapsed" : "")} aria-hidden={collapsed}><div className="panelHeader inspectorHeader"><div><div className="panelTitle">Inspector</div><div className="panelSub">{selectionCount} selected tile{selectionCount === 1 ? "" : "s"}</div></div><button className="iconButton" onClick={onReset} title="Reset Configuration"><RotateCcw className="buttonIcon" aria-hidden="true" /></button></div><div className="panelScroll settingsScroll"><MaterialPalette materialSlots={materialSlots} activeMaterialSlot={activeMaterialSlot} setActiveMaterialSlot={setActiveMaterialSlot} updateMaterialSlot={updateMaterialSlot} addMaterialSlot={addMaterialSlot} removeMaterialSlot={removeMaterialSlot} /><CollapsibleSettingsBlock title="Grid" collapsed={Boolean(collapsedBlocks.grid)} onToggle={() => toggleBlock("grid")}><Stepper label="Width" value={config.width} min={1} max={10} hint={moduleHint} onChange={(value) => setConfig({ width: value })} /><Stepper label="Depth" value={config.depth} min={1} max={10} hint={moduleHint} onChange={(value) => setConfig({ depth: value })} /><Stepper label="Height" value={config.height} min={1} max={8} hint={moduleHint} onChange={(value) => setConfig({ height: value })} /><div className="sizeBox">Size: <b>{formatConfigSize(config)}</b></div></CollapsibleSettingsBlock><CollapsibleSettingsBlock title="Walls" collapsed={Boolean(collapsedBlocks.walls)} onToggle={() => toggleBlock("walls")}><Toggle label="Back Wall" value={config.backWall} onChange={(value) => setConfig({ backWall: value })} /><Toggle label="Left Wall" value={config.leftWall} onChange={(value) => setConfig({ leftWall: value })} /><Toggle label="Right Wall" value={config.rightWall} onChange={(value) => setConfig({ rightWall: value })} /></CollapsibleSettingsBlock></div><div className="panelFooter twoButtons"><button className="panelButton" onClick={onShare}><Share2 className="buttonIcon" aria-hidden="true" />Share</button><button className="panelButton primary" onClick={onExport}><Download className="buttonIcon" aria-hidden="true" />Export</button></div></aside>;
+  function moveBlock(targetBlock) {
+    if (!draggedBlock || draggedBlock === targetBlock) return;
+    setBlockOrder((previous) => {
+      const next = previous.filter((block) => block !== draggedBlock);
+      next.splice(next.indexOf(targetBlock), 0, draggedBlock);
+      return next;
+    });
+  }
+  function getDragHandleProps(blockKey) {
+    return { draggable: true, onDragStart: (event) => { setDraggedBlock(blockKey); event.dataTransfer.effectAllowed = "move"; }, onDragEnd: () => setDraggedBlock(null) };
+  }
+  function renderBlock(blockKey) {
+    if (blockKey === "material") return <MaterialPalette materialSlots={materialSlots} activeMaterialSlot={activeMaterialSlot} setActiveMaterialSlot={setActiveMaterialSlot} updateMaterialSlot={updateMaterialSlot} addMaterialSlot={addMaterialSlot} removeMaterialSlot={removeMaterialSlot} dragHandleProps={getDragHandleProps(blockKey)} />;
+    if (blockKey === "grid") return <CollapsibleSettingsBlock title="Grid" Icon={Grid3X3} collapsed={Boolean(collapsedBlocks.grid)} onToggle={() => toggleBlock("grid")} dragHandleProps={getDragHandleProps(blockKey)}><Stepper label="Width" value={config.width} min={1} max={10} hint={moduleHint} onChange={(value) => setConfig({ width: value })} /><Stepper label="Depth" value={config.depth} min={1} max={10} hint={moduleHint} onChange={(value) => setConfig({ depth: value })} /><Stepper label="Height" value={config.height} min={1} max={8} hint={moduleHint} onChange={(value) => setConfig({ height: value })} /><div className="sizeBox">Size: <b>{formatConfigSize(config)}</b></div></CollapsibleSettingsBlock>;
+    if (blockKey === "walls") return <CollapsibleSettingsBlock title="Walls" Icon={Home} collapsed={Boolean(collapsedBlocks.walls)} onToggle={() => toggleBlock("walls")} dragHandleProps={getDragHandleProps(blockKey)}><Toggle label="Back Wall" value={config.backWall} onChange={(value) => setConfig({ backWall: value })} /><Toggle label="Left Wall" value={config.leftWall} onChange={(value) => setConfig({ leftWall: value })} /><Toggle label="Right Wall" value={config.rightWall} onChange={(value) => setConfig({ rightWall: value })} /></CollapsibleSettingsBlock>;
+    if (blockKey === "build") return <CollapsibleSettingsBlock title="Build" Icon={ClipboardList} collapsed={Boolean(collapsedBlocks.build)} onToggle={() => toggleBlock("build")} dragHandleProps={getDragHandleProps(blockKey)}><BuildList printList={printList} /></CollapsibleSettingsBlock>;
+    return <CollapsibleSettingsBlock title="Print" Icon={Printer} collapsed={Boolean(collapsedBlocks.printer)} onToggle={() => toggleBlock("printer")} dragHandleProps={getDragHandleProps(blockKey)}><PrinterSettings /></CollapsibleSettingsBlock>;
+  }
+  return <aside className={cx("rightPanel", collapsed ? "collapsed" : "")} aria-hidden={collapsed}><div className="panelHeader inspectorHeader"><div><div className="panelTitle"><TitleWithIcon Icon={FileText}>Project Properties</TitleWithIcon></div><div className="panelSub">Scene settings, materials, and build output.</div></div><button className="materialAction resetAction" onClick={onReset} title="Reset Configuration"><RotateCcw className="buttonIcon" aria-hidden="true" /></button></div><div className="panelScroll settingsScroll">{blockOrder.map((blockKey) => <div key={blockKey} className={cx("projectBlockDrag", draggedBlock === blockKey ? "dragging" : "")} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); moveBlock(blockKey); }}>{renderBlock(blockKey)}</div>)}</div><div className="panelFooter twoButtons"><button className="panelButton" onClick={onCopy}><FileText className="buttonIcon" aria-hidden="true" />Download Assembly Guide</button><button className="panelButton primary" onClick={onDownload}><Download className="buttonIcon" aria-hidden="true" />Download 3MF</button></div></aside>;
 }
 
 function Toolbar({ activeTool, setActiveTool, selectedCount, units, setUnits, showRuler, setShowRuler, showGrid, setShowGrid, onGroup, onRotate, onFlip, onPaint }) {
@@ -1125,7 +1175,7 @@ function Viewport({ config, setConfig, tiles, setTiles, selectedIds, setSelected
     setActiveTool("select");
   }
 
-  return <main className="viewport"><Toolbar activeTool={activeTool} setActiveTool={setActiveTool} selectedCount={selectedIds.length} units={config.units} setUnits={(units) => setConfig({ units })} showRuler={showRuler} setShowRuler={setShowRuler} showGrid={showGrid} setShowGrid={setShowGrid} onGroup={groupSelected} onRotate={rotateSelected} onFlip={flipSelected} onPaint={paintSelected} /><div className="viewportBadge">{formatConfigSize(config)}</div><ThreeViewport config={config} tiles={tiles} selectedIds={selectedIds} activeTool={activeTool} onSelectTile={onSelectTile} onPaintTile={paintTile} clearSelection={clearSelection} showRuler={showRuler} showGrid={showGrid} /></main>;
+  return <main className="viewport"><Toolbar activeTool={activeTool} setActiveTool={setActiveTool} selectedCount={selectedIds.length} units={config.units} setUnits={(units) => setConfig({ units })} showRuler={showRuler} setShowRuler={setShowRuler} showGrid={showGrid} setShowGrid={setShowGrid} onGroup={groupSelected} onRotate={rotateSelected} onFlip={flipSelected} onPaint={paintSelected} /><ThreeViewport config={config} tiles={tiles} selectedIds={selectedIds} activeTool={activeTool} onSelectTile={onSelectTile} onPaintTile={paintTile} clearSelection={clearSelection} showRuler={showRuler} showGrid={showGrid} /></main>;
 }
 
 export default function App() {
@@ -1287,31 +1337,41 @@ export default function App() {
     .avatar { width: var(--icon-button-size); height: var(--icon-button-size); margin-left: -6px; border-radius: var(--frame-radius); display: grid; place-items: center; background: #111111; color: #ffffff; }
     .topIcon { width: var(--icon-glyph-size); height: var(--icon-glyph-size); stroke-width: var(--icon-stroke-width); }
     .mainLayout { position: relative; flex: 1; min-height: 0; display: block; overflow: visible; }
-    .revealZone { position: absolute; top: 0; bottom: 0; z-index: 19; pointer-events: auto; }
-    .builderRevealZone { left: 0; width: calc(var(--edge-gap) + var(--left-panel-width) + var(--rail-gap) + var(--icon-button-size)); }
-    .inspectorRevealZone { right: 0; width: calc(var(--edge-gap) + var(--right-panel-width) + var(--rail-gap) + var(--icon-button-size)); }
+    .revealZone { position: absolute; top: calc(50% - 100px); width: 200px; height: 200px; z-index: 19; pointer-events: auto; }
+    .builderRevealZone { left: calc(var(--edge-gap) + var(--left-panel-width) - 100px); }
+    .inspectorRevealZone { right: calc(var(--edge-gap) + var(--right-panel-width) - 100px); }
     .sideRail { position: absolute; z-index: 28; left: calc(var(--edge-gap) + var(--left-panel-width) + var(--rail-gap)); top: 50%; transform: translateY(-50%); display: grid; gap: 18px; opacity: 0; pointer-events: none; transition: left 240ms ease, opacity 160ms ease; }
-    .builderCollapsed .sideRail { left: var(--edge-gap); }
-    .builderCollapsed .sideRail, .builderRevealZone:hover ~ .sideRail, .sideRail:hover, .mainLayout:has(.leftPanel:hover) .sideRail { opacity: 1; pointer-events: auto; }
+    .builderCollapsed .sideRail { left: var(--edge-gap); opacity: 1; pointer-events: auto; }
+    .panelHideButton { position: absolute; z-index: 29; top: 50%; width: 34px; height: 54px; border: 0; background: transparent; box-shadow: none; display: grid; place-items: center; opacity: 0; pointer-events: none; transition: transform 180ms ease, opacity 160ms ease; }
+    .panelHideButton::before { content: ""; width: 0; height: 0; border-top: 11px solid transparent; border-bottom: 11px solid transparent; }
+    .leftHideButton { left: calc(var(--edge-gap) + var(--left-panel-width) - 6px); transform: translate(-18px, -50%); }
+    .leftHideButton::before { border-right: 16px solid #111111; }
+    .rightHideButton { right: calc(var(--edge-gap) + var(--right-panel-width) - 6px); transform: translate(18px, -50%); }
+    .rightHideButton::before { border-left: 16px solid #111111; }
+    .mainLayout:not(.builderCollapsed) .builderRevealZone:hover ~ .leftHideButton, .mainLayout:not(.builderCollapsed) .leftHideButton:hover { opacity: 1; pointer-events: auto; transform: translate(0, -50%); }
+    .mainLayout:not(.inspectorCollapsed) .inspectorRevealZone:hover ~ .rightHideButton, .mainLayout:not(.inspectorCollapsed) .rightHideButton:hover { opacity: 1; pointer-events: auto; transform: translate(0, -50%); }
+    .builderCollapsed .leftHideButton, .inspectorCollapsed .rightHideButton { opacity: 0; pointer-events: none; }
     .inspectorToggle { position: absolute; z-index: 28; right: calc(var(--edge-gap) + var(--right-panel-width) + var(--rail-gap)); top: 50%; transform: translateY(-50%); width: var(--icon-button-size); height: var(--icon-button-size); border: 1px solid #e8e5df; border-radius: 999px; background: #ffffff; color: #6f6f6f; display: grid; place-items: center; opacity: 0; pointer-events: none; box-shadow: 0 14px 35px rgba(33,35,38,0.08); transition: right 240ms ease, opacity 160ms ease, background 160ms ease, border-color 160ms ease, color 160ms ease; }
-    .inspectorCollapsed .inspectorToggle { right: var(--edge-gap); }
-    .inspectorCollapsed .inspectorToggle, .inspectorRevealZone:hover ~ .inspectorToggle, .inspectorToggle:hover, .mainLayout:has(.rightPanel:hover) .inspectorToggle { opacity: 1; pointer-events: auto; }
+    .inspectorCollapsed .inspectorToggle { right: var(--edge-gap); opacity: 1; pointer-events: auto; }
     .inspectorToggle.active { background: #111111; border-color: #111111; color: #ffffff; }
     .railButton { width: var(--icon-button-size); height: var(--icon-button-size); border-radius: var(--frame-radius); border: 1px solid #e8e5df; background: #ffffff; color: #6f6f6f; display: grid; place-items: center; box-shadow: 0 14px 35px rgba(33,35,38,0.08); transition: background 160ms ease, border-color 160ms ease, color 160ms ease; }
     .railButton.active { background: #111111; border-color: #111111; color: #ffffff; }
     .railIcon { width: var(--icon-glyph-size); height: var(--icon-glyph-size); stroke-width: var(--icon-stroke-width); }
     .panelButton:hover, .iconButton:hover { border-color: #e8e5df; color: #111111; background: #f2f2f2; }
-    .leftPanel, .rightPanel { position: absolute; z-index: 20; top: var(--panel-edge-gap); bottom: var(--panel-edge-gap); min-height: 0; display: flex; flex-direction: column; border: 1px solid #e8e5df; border-radius: var(--frame-radius); background: var(--panel); -webkit-backdrop-filter: blur(18px) saturate(118%); backdrop-filter: blur(18px) saturate(118%); box-shadow: 0 28px 72px rgba(33,35,38,0.11), 0 2px 8px rgba(33,35,38,0.04), inset 0 1px 0 rgba(255,255,255,0.92); overflow: hidden; }
+    .leftPanel, .rightPanel { position: absolute; z-index: 20; top: var(--panel-edge-gap); bottom: var(--panel-edge-gap); min-height: 0; display: flex; flex-direction: column; border: 1px solid rgba(232,229,223,0.58); border-radius: var(--frame-radius); background: rgba(255,255,255,0.3); -webkit-backdrop-filter: blur(18px) saturate(118%); backdrop-filter: blur(18px) saturate(118%); box-shadow: 0 28px 72px rgba(33,35,38,0.11), 0 2px 8px rgba(33,35,38,0.04), inset 0 1px 0 rgba(255,255,255,0.42); overflow: hidden; }
     .leftPanel { left: var(--edge-gap); width: var(--left-panel-width); bottom: auto; max-height: calc(100% - (var(--panel-edge-gap) * 2)); transition: transform 240ms ease, opacity 180ms ease; }
     .leftPanel.collapsed { transform: translateX(calc(-100% - var(--edge-gap))); opacity: 0; pointer-events: none; }
     .rightPanel { right: var(--edge-gap); width: var(--right-panel-width); bottom: auto; max-height: calc(100% - (var(--panel-edge-gap) * 2)); transition: transform 240ms ease, opacity 180ms ease; }
     .rightPanel.collapsed { transform: translateX(calc(100% + var(--edge-gap))); opacity: 0; pointer-events: none; }
-    .panelHeader { padding: 18px; border-bottom: 1px solid rgba(45,47,51,0.07); background: rgba(255,255,255,0.42); }
+    .panelHeader { padding: 18px; border-bottom: 1px solid rgba(45,47,51,0.07); background: rgba(255,255,255,0.3); }
     .panelTitle { font-size: 14px; font-weight: 700; letter-spacing: -0.02em; }
-    .leftPanel .panelTitle { font-size: 30px; line-height: 1; font-weight: 800; letter-spacing: -0.045em; }
+    .titleWithIcon { display: inline-flex; align-items: center; gap: 7px; min-width: 0; color: #111111; }
+    .titleIcon { width: 14px; height: 14px; flex: 0 0 auto; color: #111111; stroke-width: var(--icon-stroke-width); }
+    .panelTitle .titleIcon { width: 16px; height: 16px; }
+    .leftPanel .panelTitle { font-size: 16px; font-weight: 800; letter-spacing: -0.025em; }
     .rightPanel .panelTitle { font-size: 16px; font-weight: 800; letter-spacing: -0.025em; }
     .panelSub { margin-top: 3px; color: #777777; font-size: 11px; font-weight: 400; letter-spacing: -0.005em; }
-    .leftPanel .panelSub { margin-top: 10px; font-size: 15px; line-height: 1.3; font-weight: 400; color: #7a7a7a; letter-spacing: -0.01em; }
+    .leftPanel .panelSub { margin-top: 3px; color: #777777; font-size: 11px; line-height: 1.35; font-weight: 400; letter-spacing: -0.005em; }
     .tabs { display: flex; gap: 6px; margin-top: 12px; }
     .tab { height: 42px; min-width: 82px; border: 1px solid #e8e5df; border-radius: 12px; padding: 0 18px; background: #ffffff; color: #111111; font-size: 14px; font-weight: 600; letter-spacing: -0.01em; box-shadow: 0 10px 22px rgba(33,35,38,0.04); }
     .tabs .tab:first-child { font-weight: 700; }
@@ -1340,6 +1400,9 @@ export default function App() {
     .librarySearch input::placeholder { color: #8a8a8a; font-weight: 400; }
     .searchIcon { width: 15px; height: 15px; flex: 0 0 auto; }
     .libraryFilters { display: flex; flex-direction: column; gap: 9px; padding: 10px 0; border-top: 1px solid #e8e5df; border-bottom: 1px solid #e8e5df; }
+    .libraryFilters.collapsed { gap: 0; }
+    .librarySort { display: grid; grid-template-columns: auto minmax(0, 1fr) 26px; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid #e8e5df; }
+    .librarySectionHeader { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .librarySectionTitle { color: #111111; font-size: 12px; font-weight: 800; letter-spacing: -0.01em; }
     .libraryFilterRow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: end; }
     .libraryFilterControl { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; min-width: 0; }
@@ -1349,22 +1412,34 @@ export default function App() {
     .libraryChip { height: 26px; border: 1px solid #e8e5df; border-radius: 8px; background: #ffffff; color: #555555; padding: 0 10px; font-size: 11px; font-weight: 600; letter-spacing: -0.01em; }
     .libraryChip:hover { background: #f2f2f2; color: #111111; }
     .libraryChip.active { background: #111111; border-color: #111111; color: #ffffff; }
-    .libraryGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-    .libraryCard { min-width: 0; border: 1px solid #e8e5df; border-radius: 14px; background: #ffffff; padding: 8px; display: flex; flex-direction: column; align-items: stretch; gap: 7px; color: #111111; text-align: left; box-shadow: 0 10px 22px rgba(33,35,38,0.04); }
-    .libraryCard:hover { border-color: rgba(17,17,17,0.18); background: #fbfaf7; }
-    .libraryThumb { height: 96px; border: 1px solid #e8e5df; border-radius: 12px; background: #f7f6f2; display: grid; place-items: center; overflow: hidden; }
-    .libraryThumb img { width: 100%; height: 100%; object-fit: contain; transform: scale(1.12); transition: transform 150ms ease; }
-    .libraryCard:hover .libraryThumb img { transform: scale(1.26); }
-    .libraryCardName { font-size: 12px; line-height: 1.1; font-weight: 800; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .libraryCardMeta { margin-top: -3px; color: #777777; font-size: 10px; line-height: 1; font-weight: 600; letter-spacing: -0.01em; }
-    .panelFooter { border-top: 1px solid rgba(45,47,51,0.08); padding: 12px; background: rgba(255,255,255,0.54); }
+    .librarySortControl { grid-template-columns: auto minmax(0, 1fr); }
+    .librarySortButton { width: 26px; height: 26px; border: 1px solid #e8e5df; border-radius: 8px; background: rgba(255,255,255,0.72); color: #555555; display: grid; place-items: center; }
+    .librarySortButton .buttonIcon { width: 12px; height: 12px; }
+    .libraryGrid { column-count: 2; column-gap: 12px; }
+    .libraryCard { width: 100%; min-width: 0; break-inside: avoid; margin: 0 0 14px; border: 1px solid var(--border); border-radius: 14px; background: rgba(255,255,255,0.58); padding: 8px; display: inline-flex; flex-direction: column; align-items: stretch; gap: 5px; color: #111111; text-align: left; box-shadow: 0 10px 22px rgba(33,35,38,0.04); }
+    .libraryCard:hover { border-color: rgba(17,17,17,0.18); background: rgba(255,255,255,0.72); }
+    .libraryThumb { width: 100%; display: block; overflow: visible; }
+    .libraryThumb img { display: block; width: 100%; height: auto; object-fit: contain; transition: transform 150ms ease; }
+    .libraryCard:hover .libraryThumb img { transform: scale(1.03); }
+    .libraryCardFooter { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) 24px; align-items: center; gap: 6px; }
+    .libraryCardName { min-width: 0; color: #777777; font-size: 10px; line-height: 1.1; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .libraryAddButton { width: 24px; height: 24px; border: 1px solid #e8e5df; border-radius: 8px; background: rgba(255,255,255,0.82); color: #111111; display: grid; place-items: center; }
+    .libraryAddButton:hover { background: #111111; border-color: #111111; color: #ffffff; }
+    .libraryAddButton .buttonIcon { width: 12px; height: 12px; }
+    .panelFooter { border-top: 1px solid rgba(45,47,51,0.08); padding: 12px; background: rgba(255,255,255,0.3); }
     .twoButtons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .panelButton, .iconButton { border: 1px solid #e8e5df; border-radius: 13px; background: #ffffff; color: #111111; font-size: 13px; font-weight: 700; min-height: 40px; letter-spacing: -0.01em; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
     .panelButton.primary { background: #111111; border-color: #111111; color: #ffffff; }
     .buttonIcon { width: var(--icon-glyph-size); height: var(--icon-glyph-size); stroke-width: var(--icon-stroke-width); }
+    .panelFooter .panelButton { min-height: 32px; border-radius: 10px; padding: 0 8px; gap: 6px; font-size: 11px; line-height: 1.1; }
+    .panelFooter .buttonIcon { width: 12px; height: 12px; flex: 0 0 12px; }
     .inspectorHeader { display: flex; align-items: center; justify-content: space-between; }
     .iconButton { width: var(--icon-button-size); height: var(--icon-button-size); min-height: 0; border-radius: var(--frame-radius); padding: 0; font-size: 15px; }
+    .resetAction { width: 24px; height: 24px; flex: 0 0 auto; }
     .settingsScroll { display: flex; flex-direction: column; gap: 12px; }
+    .projectBlockDrag.dragging { opacity: 0.48; }
+    .dragHandle { cursor: grab; user-select: none; }
+    .dragHandle:active { cursor: grabbing; }
     .settingsBlock { border: 1px solid var(--border); border-radius: 16px; background: rgba(255,255,255,0.58); padding: 13px; }
     .settingsBlock.stack { display: flex; flex-direction: column; gap: 10px; }
     .settingsTitle { color: #111111; text-transform: none; letter-spacing: -0.01em; font-size: 12px; font-weight: 800; margin-bottom: 10px; }
@@ -1419,11 +1494,32 @@ export default function App() {
     .toggle.on::after { transform: translateX(18px); background: #ffffff; }
     .sizeBox { color: #555555; font-size: 12px; font-weight: 600; letter-spacing: -0.01em; }
     .sizeBox b { color: #555555; font-weight: 600; }
+    .printerSettings { display: grid; gap: 8px; }
+    .printerSettings label { display: grid; grid-template-columns: 74px minmax(0, 1fr); align-items: center; gap: 8px; }
+    .printerSettings label span { color: #555555; font-size: 12px; font-weight: 600; letter-spacing: -0.01em; }
+    .printerSettings select { height: 26px; min-width: 0; border-radius: 8px; background: #ffffff; color: #777777; font-size: 11px; font-weight: 400; padding: 0 8px; }
+    .printerSpecGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .printerSpec { min-width: 0; border: 1px solid #e8e5df; border-radius: 10px; background: rgba(255,255,255,0.62); padding: 7px 8px; display: grid; gap: 2px; }
+    .printerSpec span { color: #555555; font-size: 11px; line-height: 1; font-weight: 700; letter-spacing: -0.01em; }
+    .printerSpec b { color: #777777; font-size: 10px; line-height: 1.15; font-weight: 500; letter-spacing: -0.01em; }
+    .printerSpecSelect { grid-template-columns: 1fr; align-items: stretch; }
+    .printerSpecSelect select { height: 18px; border: 0; border-radius: 0; background: transparent; color: #777777; padding: 0; font-size: 10px; font-weight: 500; }
+    .printStats { border-top: 1px solid #e8e5df; padding-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .printStatsStack { display: grid; gap: 10px; }
+    .printStat { min-width: 0; display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: center; gap: 8px; }
+    .printStats > .printStat { border-left: 1px solid #e8e5df; padding-left: 12px; align-self: stretch; }
+    .printStatIcon { width: 18px; height: 18px; color: #555555; stroke-width: 2.1; justify-self: center; }
+    .printStatIcon.accent { color: #d59a72; }
+    .printStat span { min-width: 0; display: grid; gap: 3px; }
+    .printStat b { color: #555555; font-size: 11px; line-height: 1; font-weight: 800; letter-spacing: -0.01em; }
+    .printStat em { color: #777777; font-size: 11px; line-height: 1.15; font-style: normal; font-weight: 600; letter-spacing: -0.01em; }
+    .printerStatus { min-height: 28px; border-radius: 10px; background: rgba(90,188,120,0.12); color: #55a66a; display: flex; align-items: center; padding: 0 9px; font-size: 11px; font-weight: 700; letter-spacing: -0.01em; }
+    .printerStatus::before { content: "✓"; width: 14px; height: 14px; margin-right: 6px; border-radius: 999px; background: #6ccf83; color: #ffffff; display: grid; place-items: center; font-size: 9px; line-height: 1; }
     .viewport { position: absolute; z-index: 0; top: calc(var(--app-header-height) * -1); right: 0; bottom: 0; left: 0; min-width: 0; overflow: hidden; background: radial-gradient(circle at 52% 50%, #ffffff 0 18%, #f7f5f1 46%, #eee9df 100%); box-shadow: inset 0 100px 180px rgba(255,255,255,0.58), inset 0 -120px 180px rgba(180,171,157,0.2); }
     .viewport::before { content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; background: linear-gradient(90deg, rgba(255,255,255,0.62) 0%, rgba(255,255,255,0.08) 42%, rgba(182,173,159,0.12) 100%); }
     .threeHost { position: absolute; inset: 0; z-index: 1; }
     .threeHost canvas { display: block; width: 100%; height: 100%; }
-    .floatingToolbar { position: absolute; z-index: 30; top: calc(var(--app-header-height) + var(--edge-gap)); left: 50%; transform: translateX(-50%); display: flex; gap: 7px; padding: 8px; border: 1px solid #e8e5df; border-radius: var(--frame-radius); background: rgba(255,255,255,0.78); -webkit-backdrop-filter: blur(18px) saturate(125%); backdrop-filter: blur(18px) saturate(125%); box-shadow: 0 18px 45px rgba(33,35,38,0.1), inset 0 1px 0 rgba(255,255,255,0.86); }
+    .floatingToolbar { position: absolute; z-index: 30; top: var(--edge-gap); left: 50%; transform: translateX(-50%); display: flex; gap: 7px; padding: 8px; border: 1px solid #e8e5df; border-radius: var(--frame-radius); background: rgba(255,255,255,0.78); -webkit-backdrop-filter: blur(18px) saturate(125%); backdrop-filter: blur(18px) saturate(125%); box-shadow: 0 18px 45px rgba(33,35,38,0.1), inset 0 1px 0 rgba(255,255,255,0.86); }
     .toolButton { width: var(--icon-button-size); height: var(--icon-button-size); border: 1px solid #e8e5df; border-radius: 11px; background: #ffffff; color: #6f6f6f; display: grid; place-items: center; }
     .unitToolButton { width: var(--icon-button-size); }
     .toolButton.active { background: #111111; border-color: #111111; color: #ffffff; }
@@ -1434,19 +1530,16 @@ export default function App() {
     }
     .miniIcon { width: var(--icon-glyph-size); height: var(--icon-glyph-size); stroke-width: var(--icon-stroke-width); }
     .unitIcon { font-size: 10px; line-height: 1; font-weight: 800; text-transform: uppercase; letter-spacing: 0; }
-    .viewportBadge { position: absolute; z-index: 10; right: calc(var(--edge-gap) + var(--right-panel-width) + 10px); top: calc(var(--app-header-height) + var(--edge-gap)); height: var(--control-height); display: inline-flex; align-items: center; border: 1px solid #e8e5df; border-radius: var(--frame-radius); background: rgba(255,255,255,0.68); color: #111111; font-size: 12px; font-weight: 700; letter-spacing: -0.015em; padding: 0 14px; pointer-events: none; backdrop-filter: blur(14px); }
     @media (max-width: 1180px) {
       .appTopBar { grid-template-columns: 150px 1fr auto; gap: 5px; padding: 0 7px; }
-      .sideRail, .inspectorToggle, .revealZone { display: none; }
+      .sideRail, .inspectorToggle, .panelHideButton, .revealZone { display: none; }
       .leftPanel { width: 300px; left: 5px; }
       .rightPanel { width: 300px; right: 5px; }
-      .leftPanel .panelTitle { font-size: 30px; }
-      .viewportBadge { right: 336px; }
+      .leftPanel .panelTitle { font-size: 16px; }
     }
     @media (max-width: 1020px) {
       .leftPanel { width: 272px; left: 4px; }
       .rightPanel { width: 292px; right: 4px; }
-      .viewportBadge { right: 318px; }
     }
     @media (max-width: 880px) {
       .appTopBar { display: none; }
@@ -1457,7 +1550,6 @@ export default function App() {
       .panelHeader { padding: 12px; }
       .panelScroll { padding: 10px; }
       .floatingToolbar { top: calc(50vh - 23px); }
-      .viewportBadge { display: none; }
     }
-  `}</style><AppTopBar config={config} /><div className={cx("mainLayout", builderOpen ? "" : "builderCollapsed", inspectorOpen ? "" : "inspectorCollapsed")}><div className="revealZone builderRevealZone" /><div className="revealZone inspectorRevealZone" /><SideRail builderOpen={builderOpen} onToggleBuilder={() => setBuilderOpen((value) => !value)} /><button className={cx("inspectorToggle", inspectorOpen ? "active" : "")} onClick={() => setInspectorOpen((value) => !value)} title={inspectorOpen ? "Hide Inspector" : "Show Inspector"} aria-pressed={inspectorOpen}><Info className="railIcon" aria-hidden="true" /></button><LeftPanel collapsed={!builderOpen} config={config} setConfig={updateConfig} printList={printList} onApplyLibraryItem={applyLibraryModel} onCopy={copyBuildList} onDownload={downloadTxt} /><Viewport config={config} setConfig={updateConfig} tiles={tiles} setTiles={setTiles} selectedIds={selectedIds} setSelectedIds={setSelectedIds} activeColor={activeColor} activeMaterialSlot={activeMaterial.slot} activeMaterialLabel={activeMaterialLabel} showRuler={showRuler} setShowRuler={setShowRuler} showGrid={showGrid} setShowGrid={setShowGrid} /><RightPanel collapsed={!inspectorOpen} config={config} setConfig={updateConfig} materialSlots={materialSlots} activeMaterialSlot={activeMaterialSlot} setActiveMaterialSlot={setActiveMaterialSlot} updateMaterialSlot={updateMaterialSlot} addMaterialSlot={addMaterialSlot} removeMaterialSlot={removeMaterialSlot} selectionCount={selectedIds.length} onReset={resetConfiguration} onShare={shareBuildList} onExport={downloadTxt} /></div></div>;
+  `}</style><AppTopBar config={config} /><div className={cx("mainLayout", builderOpen ? "" : "builderCollapsed", inspectorOpen ? "" : "inspectorCollapsed")}><div className="revealZone builderRevealZone" /><div className="revealZone inspectorRevealZone" /><SideRail builderOpen={builderOpen} onToggleBuilder={() => setBuilderOpen((value) => !value)} /><button className="panelHideButton leftHideButton" onClick={() => setBuilderOpen(false)} title="Hide Library" aria-label="Hide Library" /><button className={cx("inspectorToggle", inspectorOpen ? "active" : "")} onClick={() => setInspectorOpen((value) => !value)} title={inspectorOpen ? "Hide Project Properties" : "Show Project Properties"} aria-pressed={inspectorOpen}><FileText className="railIcon" aria-hidden="true" /></button><button className="panelHideButton rightHideButton" onClick={() => setInspectorOpen(false)} title="Hide Project Properties" aria-label="Hide Project Properties" /><LeftPanel collapsed={!builderOpen} config={config} setConfig={updateConfig} onApplyLibraryItem={applyLibraryModel} /><Viewport config={config} setConfig={updateConfig} tiles={tiles} setTiles={setTiles} selectedIds={selectedIds} setSelectedIds={setSelectedIds} activeColor={activeColor} activeMaterialSlot={activeMaterial.slot} activeMaterialLabel={activeMaterialLabel} showRuler={showRuler} setShowRuler={setShowRuler} showGrid={showGrid} setShowGrid={setShowGrid} /><RightPanel collapsed={!inspectorOpen} config={config} setConfig={updateConfig} materialSlots={materialSlots} activeMaterialSlot={activeMaterialSlot} setActiveMaterialSlot={setActiveMaterialSlot} updateMaterialSlot={updateMaterialSlot} addMaterialSlot={addMaterialSlot} removeMaterialSlot={removeMaterialSlot} printList={printList} onReset={resetConfiguration} onCopy={copyBuildList} onDownload={downloadTxt} /></div></div>;
 }
