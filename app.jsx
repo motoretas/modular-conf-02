@@ -935,7 +935,7 @@ function MiniIcon({ Icon }) { return <Icon className="miniIcon" aria-hidden="tru
 function TitleWithIcon({ Icon, children }) { return <span className="titleWithIcon"><Icon className="titleIcon" aria-hidden="true" />{children}</span>; }
 
 function AppTopBar({ config }) {
-  return <header className="appTopBar"><div className="brandLockup"><span className="brandMark" /><span>Modular</span></div><div /><div className="topProfileRow"><button className="roundAction"><MessageCircle className="topIcon" aria-hidden="true" /></button><button className="roundAction"><Bell className="topIcon" aria-hidden="true" /></button><button className="userPill"><span className="avatar"><UserRound className="topIcon" aria-hidden="true" /></span><span><b>Builder</b><small>{config.scale}</small></span><ChevronDown className="topIcon" aria-hidden="true" /></button></div></header>;
+  return <header className="appTopBar"><div className="brandLockup"><img className="brandMark" src="/icons/Logo.svg" alt="" /><span>DioGrid.app</span></div><div /><div className="topProfileRow"><button className="roundAction"><MessageCircle className="topIcon" aria-hidden="true" /></button><button className="roundAction"><Bell className="topIcon" aria-hidden="true" /></button><button className="userPill"><span className="avatar"><UserRound className="topIcon" aria-hidden="true" /></span><span><b>Builder</b><small>{config.scale}</small></span><ChevronDown className="topIcon" aria-hidden="true" /></button></div></header>;
 }
 
 function SideRail({ builderOpen, onToggleBuilder }) {
@@ -1313,7 +1313,7 @@ export default function App() {
 
   return <div className="appShell"><style>{`
     @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
-    :root { --bg: #f7f6f2; --viewport: #fbfaf7; --panel: rgba(255,255,255,0.88); --panel2: #ffffff; --border: #e8e5df; --text: #111111; --muted: #777777; --active: #111111; --soft: #f2f2f2; --measure: #111111; --frame-radius: 18px; --control-height: 36px; --icon-button-size: 36px; --icon-glyph-size: 18px; --icon-stroke-width: 2.2; --app-header-height: 64px; --edge-gap: 14px; --panel-edge-gap: var(--edge-gap); --left-panel-width: 348px; --right-panel-width: 322px; --rail-gap: 8px; }
+    :root { --bg: #f7f6f2; --viewport: #fbfaf7; --panel: rgba(255,255,255,0.88); --panel2: #ffffff; --border: #e8e5df; --text: #111111; --muted: #777777; --active: #111111; --soft: #f2f2f2; --measure: #111111; --frame-radius: 18px; --control-height: 34px; --icon-button-size: 34px; --icon-glyph-size: 17px; --icon-stroke-width: 2.2; --app-header-height: 40px; --edge-gap: 8px; --panel-edge-gap: 6px; --left-panel-width: 348px; --right-panel-width: 322px; --rail-gap: 8px; }
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--bg); font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; line-height: 1.35; font-weight: 400; color: #111111; }
     button, select, input { font: inherit; }
@@ -1321,9 +1321,8 @@ export default function App() {
     .appShell { width: 100vw; height: 100vh; overflow: hidden; display: flex; flex-direction: column; background: radial-gradient(circle at 52% 52%, #ffffff 0 24%, #fbfaf7 50%, #f7f6f2 100%); color: var(--text); font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; line-height: 1.35; font-weight: 400; font-optical-sizing: auto; -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision; }
     .appTopBar { height: var(--app-header-height); flex: 0 0 var(--app-header-height); display: grid; grid-template-columns: 170px 1fr auto; align-items: center; gap: 8px; padding: 0 var(--edge-gap); position: relative; z-index: 40; background: transparent; pointer-events: none; }
     .appTopBar button { pointer-events: auto; }
-    .brandLockup { display: flex; align-items: center; gap: 11px; font-size: 18px; font-weight: 700; letter-spacing: -0.03em; }
-    .brandMark { width: 30px; height: 30px; border-radius: 7px; background: #0d0e10; display: block; position: relative; box-shadow: 0 10px 22px rgba(0,0,0,0.12); }
-    .brandMark::after { content: ""; position: absolute; inset: 8px; border-radius: 3px; background: #fff; }
+    .brandLockup { display: flex; align-items: center; gap: 6px; font-size: 16px; font-weight: 700; letter-spacing: -0.03em; }
+    .brandMark { width: 22px; height: 22px; display: block; object-fit: contain; }
     .roundAction, .userPill { border: 1px solid var(--border); background: rgba(255,255,255,0.72); box-shadow: 0 14px 35px rgba(33,35,38,0.06), inset 0 1px 0 rgba(255,255,255,0.82); }
     .topProfileRow { display: flex; align-items: center; gap: 10px; }
     .topProfileRow { justify-content: flex-end; }
