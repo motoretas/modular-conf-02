@@ -7,7 +7,7 @@ const MODULE_MM = 50;
 const UNIT = 0.5;
 const VISUAL_TILE_UNIT = 0.49;
 const TILE_THICKNESS = 0.012;
-const MODEL_BASE_COLOR = "#cccccc";
+const MODEL_BASE_COLOR = "#ffffff";
 const SCALE_OPTIONS = ["1:12", "1:18", "1:144"];
 const THEME_OPTIONS = ["Sci-Fi", "Urban", "Industrial"];
 const UNIT_OPTIONS = [
@@ -428,15 +428,16 @@ function createTextSprite(text, color) {
 
 function makeMediumGrayMaterial(material, color = MODEL_BASE_COLOR) {
   if (Array.isArray(material)) return material.map((entry) => makeMediumGrayMaterial(entry, color));
+  const tint = new THREE.Color(color);
   const next = new THREE.MeshStandardMaterial({
-    color,
+    color: tint,
     roughness: material && typeof material.roughness === "number" ? material.roughness : 0.78,
-    metalness: material && typeof material.metalness === "number" ? material.metalness : 0.08,
+    metalness: 0,
     side: THREE.DoubleSide
   });
   if (next.emissive) {
-    next.emissive.set("#000000");
-    next.emissiveIntensity = 0;
+    next.emissive.copy(tint);
+    next.emissiveIntensity = 0.38;
   }
   return next;
 }
@@ -735,7 +736,7 @@ function ThreeViewport({ config, tiles, selectedIds, activeTool, onSelectTile, o
         const model = makeTileModel(tile.modelId, displayColor, transform);
         if (model) content.add(model);
         else {
-          const material = new THREE.MeshStandardMaterial({ color: displayColor, roughness: 0.78, metalness: 0.08, emissive: new THREE.Color("#000000"), emissiveIntensity: 0 });
+          const material = new THREE.MeshStandardMaterial({ color: displayColor, roughness: 0.78, metalness: 0, emissive: new THREE.Color(displayColor), emissiveIntensity: 0.38 });
           const mesh = new THREE.Mesh(new THREE.BoxGeometry(VISUAL_TILE_UNIT, TILE_THICKNESS, VISUAL_TILE_UNIT), material);
           mesh.castShadow = false;
           mesh.receiveShadow = false;
